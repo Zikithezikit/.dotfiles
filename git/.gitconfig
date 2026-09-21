@@ -5,11 +5,22 @@
 	st = status
 	ls = status
 [user]
-	email = haimovyoav@gmail.com
-	name = Zikithezikit
+	email = haimovyoav.work@gmail.com
+	name = Yoav Haimov
+  signingkey = ~/.ssh/id_ed25519.pub
+[gpg]
+  format = ssh
+[commit]
+  gpgsign = true
+  verbose = true
 [credential]
 	helper = store
 [core]
 	editor = nvim
+  pager = delta
 [push]
 	autoSetupRemote = true
+[diff]
+  algorithm = histogram
+  colorMoved = default
+  mnemonicPrefix = true
