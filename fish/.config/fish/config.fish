@@ -1,0 +1,1 @@
+/home/server-yoav/Projects/dotfiles/config/fish/config.fish
