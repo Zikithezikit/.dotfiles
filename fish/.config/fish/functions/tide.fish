@@ -12,3 +12,17 @@ function tide --description 'Manage your Tide prompt'
         return 1
     end
 end
+
+function _tide_help
+    printf %s\n \
+        'Usage: tide [options] subcommand [options]' \
+        '' \
+        'Options:' \
+        '  -v or --version  print tide version number' \
+        '  -h or --help     print this help message' \
+        '' \
+        'Subcommands:' \
+        '  configure   run interactive configuration wizard' \
+        '  reload      reload tide configuration' \
+        '  bug-report  print info for use in bug reports'
+end

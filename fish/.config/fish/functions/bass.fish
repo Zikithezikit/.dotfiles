@@ -23,3 +23,7 @@ function bass
   source $script_file
   command rm $script_file
 end
+
+function __bass_usage
+  echo "Usage: bass [-d] <bash-command>"
+end
