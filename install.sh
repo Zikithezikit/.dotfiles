@@ -28,7 +28,8 @@ echo "Update-Upgrade apt"
 run_privileged add-apt-repository ppa:neovim-ppa/stable -y >/dev/null &&
   run_privileged apt update -y >/dev/null &&
   run_privileged apt upgrade -y >/dev/null &&
-  run_privileged apt install curl git stow neovim fish -y --fix-missing >/dev/null
+  run_privileged apt install curl git stow neovim fish i3 i3status i3lock dmenu -y --fix-missing >/dev/null &&
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/mkasberg/ghostty-ubuntu/HEAD/install.sh)" >/dev/null
 
 for dir in ~/dotfiles/*/; do
   dir="${dir%*/}"
