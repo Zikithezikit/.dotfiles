@@ -1,1 +1,32 @@
-/home/server-yoav/Projects/dotfiles/config/i3/i3status/config
+# i3status configuration file.
+# see "man i3status" for documentation.
+
+general {
+        colors = true
+        interval = 5
+        color_good = "#a8a3c1"
+        color_bad = "#ff0000"
+}
+
+order += "cpu_usage"
+order += "memory"
+order += "disk /"
+order += "tztime local"
+
+tztime local {
+        format = "%Y-%m-%d %H:%M:%S"
+}
+
+cpu_usage {
+        format = " %usage"
+}
+
+memory {
+        format = "%used/%total (%percentage_used)"
+        threshold_degraded = "80%"
+        format_degraded = "%used/%total (%percentage_used)"
+}
+
+disk "/" {
+        format = "%avail"
+}
