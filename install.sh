@@ -184,7 +184,7 @@ install_ppa() {
   fi
 }
 
-packages=(curl git stow neovim fish i3 i3status i3lock dmenu git-delta)
+packages=(curl git stow neovim fish tmux i3 i3status i3lock dmenu git-delta)
 
 # Sudo is a hard requirement for everything below: verify it and stop here
 # with instructions if it is not usable. Called directly (not via run_step)
@@ -231,6 +231,23 @@ if [ -z "$STOW_FAILED" ]; then
   step_success "All configs stowed"
 else
   step_error "Some configs failed to stow"
+fi
+
+# --- Tmux plugins (TPM) ---
+
+# TPM and its plugins live outside the repo (cloned into ~/.tmux/plugins), so
+# stow only provides ~/.tmux.conf. Bootstrap TPM here, then let it install the
+# plugins declared in the config. Needs the stow step above to have run first.
+install_tmux_plugins() {
+  local tpm_dir="$HOME/.tmux/plugins/tpm"
+  if [ ! -d "$tpm_dir" ]; then
+    git clone --depth 1 https://github.com/tmux-plugins/tpm "$tpm_dir" || return 1
+  fi
+  "$tpm_dir/bin/install_plugins"
+}
+
+if [ -f "$HOME/.tmux.conf" ]; then
+  if run_step "Install tmux plugins (TPM)" install_tmux_plugins; then :; else FAILED="1"; fi
 fi
 
 # --- Summary ---
