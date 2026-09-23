@@ -47,9 +47,6 @@ end
 # OpenClaw Completion
 source "/home/server-yoav/.openclaw/completions/openclaw.fish"
 
-# Maton API Key for Todoist integration
-
-
 # API for claude code
 set ANTHROPIC_BASE_URL "http://10.100.102.20:20128/v1"
 set ANTHROPIC_AUTH_TOKEN "$OPENROUTER_API_KEY"

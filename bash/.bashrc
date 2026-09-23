@@ -1,4 +1,3 @@
-
 # Kiro CLI pre block. Keep at the top of this file.
 [[ -f "${HOME}/.local/share/kiro-cli/shell/bashrc.pre.bash" ]] && builtin source "${HOME}/.local/share/kiro-cli/shell/bashrc.pre.bash"
 
@@ -131,19 +130,18 @@ export NVM_DIR="$HOME/.nvm"
 
 # >>> conda initialize >>>
 # !! Contents within this block are managed by 'conda init' !!
-__conda_setup="$('/home/server-yoav/miniconda3/bin/conda' 'shell.bash' 'hook' 2> /dev/null)"
+__conda_setup="$('/home/server-yoav/miniconda3/bin/conda' 'shell.bash' 'hook' 2>/dev/null)"
 if [ $? -eq 0 ]; then
-    eval "$__conda_setup"
+  eval "$__conda_setup"
 else
-    if [ -f "/home/server-yoav/miniconda3/etc/profile.d/conda.sh" ]; then
-        . "/home/server-yoav/miniconda3/etc/profile.d/conda.sh"
-    else
-        export PATH="/home/server-yoav/miniconda3/bin:$PATH"
-    fi
+  if [ -f "/home/server-yoav/miniconda3/etc/profile.d/conda.sh" ]; then
+    . "/home/server-yoav/miniconda3/etc/profile.d/conda.sh"
+  else
+    export PATH="/home/server-yoav/miniconda3/bin:$PATH"
+  fi
 fi
 unset __conda_setup
 # <<< conda initialize <<<
-
 
 source '/home/server-yoav/.bash_completions/tradingagents.sh'
 export PATH="$HOME/.npm-global/bin:$PATH"
@@ -153,17 +151,10 @@ alias ls='ls --color=auto'
 alias grep='grep --color=auto'
 export PATH="$HOME/.local/bin:$PATH"
 
-
-# Maton API Key for Todoist integration
-
-
 # Kiro CLI post block. Keep at the bottom of this file.
 [[ -f "${HOME}/.local/share/kiro-cli/shell/bashrc.post.bash" ]] && builtin source "${HOME}/.local/share/kiro-cli/shell/bashrc.post.bash"
 
-
-# Anthropic 
-export ANTHROPIC_BASE_URL="http://10.100.102.20:20128/v1"
-export ANTHROPIC_AUTH_TOKEN="$OPENROUTER_API_KEY"
-export ANTHROPIC_API_KEY=""
-
-
+# Anthropic
+# export ANTHROPIC_BASE_URL="http://10.100.102.20:20128/v1"
+# export ANTHROPIC_AUTH_TOKEN="$OPENROUTER_API_KEY"
+# export ANTHROPIC_API_KEY=""
