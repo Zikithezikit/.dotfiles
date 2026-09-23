@@ -65,7 +65,6 @@ font pango:DejaVu Sans Mono, FontAwesome 16
 exec --no-startup-id xrandr --output DP-1 --primary --mode 1920x1080 --pos 0x0 --auto
 exec --no-startup-id xrandr --output DVI-D-0 --right-of DP-1 --mode 1920x1080 --auto
 
-
 # Use Mouse+$mod to drag floating windows to their wanted position
 floating_modifier $mod
 
@@ -305,5 +304,5 @@ bindsym $mod+Ctrl+l exec --no-startup-id i3lock-fancy
 exec_always --no-startup-id picom
 
 ## Wallpaper
-exec --no-startup-id bash -c 'while true; do feh --bg-fill --randomize ~/Pictures/Wallpapers/*; sleep 10m; done'
+exec --no-startup-id bash -c 'while true; do feh --bg-fill --randomize ~/Pictures/Wallpapers/*; sleep 5m; done'
 # exec --no-startup-id feh --bg-scale ~/Pictures/Wallpapers/wallpaper-1.jpg
