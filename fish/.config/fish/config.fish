@@ -24,7 +24,6 @@ set -gx PATH $PATH /home/server-yoav/.lmstudio/bin
 # Language support
 setxkbmap -layout us,il -option grp:win_space_toggle 2>/dev/null
 
-
 ## Wallpaper
 # exec --no-startup-id feh --bg-scale ~/Pictures/Wallpapers/wallpaper-1.jpg
 
@@ -36,7 +35,6 @@ set --export PATH $BUN_INSTALL/bin $PATH
 set --export BUN_INSTALL "$HOME/.bun"
 set --export PATH $BUN_INSTALL/bin $PATH
 
-
 alias copy="xclip -selection clipboard"
 alias venv="source .venv/bin/activate.fish"
 
@@ -45,24 +43,18 @@ function nvm
 end
 
 # OpenClaw Completion
-source "/home/server-yoav/.openclaw/completions/openclaw.fish"
+# source "/home/server-yoav/.openclaw/completions/openclaw.fish"
 
 # API for claude code
 set ANTHROPIC_BASE_URL "http://10.100.102.20:20128/v1"
 set ANTHROPIC_AUTH_TOKEN "$OPENROUTER_API_KEY"
 set ANTHROPIC_API_KEY ""
 
-
-
-
 ####
 
 alias idf="source '/home/server-yoav/.espressif/tools/activate_idf_v6.1.fish' && set -x ESP_IDF_VERSION 6.1.0"
 
 set -gx PATH ~/.espressif/tools/tools/qemu-xtensa/esp_develop_9.2.2_20260417/qemu/bin $PATH
-
-
-
 
 # Print an optspec for argparse to handle cmd's options that are independent of any subcommand.
 function __fish_eim_global_optspecs
@@ -361,10 +353,52 @@ complete -c eim -n "__fish_eim_using_subcommand help; and not __fish_seen_subcom
 complete -c eim -n "__fish_eim_using_subcommand help; and not __fish_seen_subcommand_from install list list-tools list-features select discover remove rename run import purge wizard gui fix install-drivers completions help-json help" -f -a help-json -d 'Print help in JSON format for machine reading'
 complete -c eim -n "__fish_eim_using_subcommand help; and not __fish_seen_subcommand_from install list list-tools list-features select discover remove rename run import purge wizard gui fix install-drivers completions help-json help" -f -a help -d 'Print this message or the help of the given subcommand(s)'
 
-
 # >>> ESP-IDF EIM PATH >>>
 # Added by ESP-IDF extension so the EIM CLI can be launched directly.
 if not contains -- /usr/bin $PATH
     set -gx PATH /usr/bin $PATH
 end
 # <<< ESP-IDF EIM PATH <<<
+
+function frg --description "Live interactive ripgrep + fzf preview"
+    set -l initial_query (string escape -- $argv)
+
+    set -l rg_command "rg --column --line-number --no-heading --color=always --smart-case --hidden --glob '!.git/*'"
+
+    # Clipboard fallback (supports Wayland, X11, macOS)
+    set -l copy_cmd pbcopy
+    if type -q wl-copy
+        set copy_cmd wl-copy
+    else if type -q xclip
+        set copy_cmd "xclip -selection clipboard"
+    end
+
+    set -l result (
+        FZF_DEFAULT_COMMAND="$rg_command ''" \
+        fzf --disabled \
+            --ansi \
+            --query="$initial_query" \
+            --delimiter ':' \
+            --prompt '🔍 Search > ' \
+            --header '⚡ [Ctrl-Y: Copy Preview] | Search file contents' \
+            --border='rounded' \
+            --border-label=' Live Ripgrep Search ' \
+            --border-label-pos='2' \
+            --color='border:#89b4fa,label:#f5e0dc,prompt:#cba6f7,pointer:#f5e0dc' \
+            --preview 'test -n "{1}" && bat --style=numbers,changes --color=always --highlight-line {2} -- {1}' \
+            --preview-window 'right:60%,border-rounded,+{2}+3/3' \
+            --bind "start:reload:$rg_command {q}" \
+            --bind "change:reload:$rg_command {q} || true" \
+            --bind "ctrl-y:execute-silent(bat --plain --color=never -- {1} | $copy_cmd)+change-prompt(📋 Copied! > )"
+    )
+
+    if test -n "$result"
+        set -l file (string split -f1 ":" -- $result)
+        set -l line (string split -f2 ":" -- $result)
+
+        set -l editor $EDITOR
+        test -z "$editor"; and set editor nvim
+
+        $editor +$line "$file"
+    end
+end
