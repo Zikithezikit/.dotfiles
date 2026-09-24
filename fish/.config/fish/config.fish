@@ -4,6 +4,7 @@ end
 
 set fish_greeting
 
+set -gx PATH /usr/local/go/bin $PATH
 export PATH="$PATH:/opt/nvim-linux-x86_64/bin"
 alias audio_server="as-cmd --bind=10.100.102.20 --encoding=f32 --channels=2 --sample-rate=48000"
 alias netflix_remote="export XAUTHORITY='$HOME/.Xauthority' && gtk-launch Netflix"

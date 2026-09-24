@@ -7,10 +7,9 @@
 [user]
 	email = haimovyoav.work@gmail.com
 	name = Yoav Haimov
-	signingkey = CC805F59640D3665
+	signingkey = ~/.ssh/id_ed25519.pub
 [gpg]
-  format = openpgp
-  program = gpg
+  format = ssh
 [commit]
   gpgsign = true
   verbose = true

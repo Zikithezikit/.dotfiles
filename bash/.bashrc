@@ -158,3 +158,5 @@ export PATH="$HOME/.local/bin:$PATH"
 # export ANTHROPIC_BASE_URL="http://10.100.102.20:20128/v1"
 # export ANTHROPIC_AUTH_TOKEN="$OPENROUTER_API_KEY"
 # export ANTHROPIC_API_KEY=""
+
+export PATH=/usr/local/go/bin:$PATH
