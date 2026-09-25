@@ -26,7 +26,7 @@ else
   state=$'\uF144'
 fi
 
-note=$'\uF001'
+note=$'\U000f0387'
 prev=$'\uF048'
 nexti=$'\uF051'
 
