@@ -184,7 +184,7 @@ install_ppa() {
   fi
 }
 
-packages=(curl git stow neovim fish tmux i3 i3status i3lock dmenu git-delta)
+packages=(curl git stow neovim fish tmux i3 i3status i3lock dmenu git-delta polybar)
 
 # Sudo is a hard requirement for everything below: verify it and stop here
 # with instructions if it is not usable. Called directly (not via run_step)
