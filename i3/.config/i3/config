@@ -302,7 +302,7 @@ bindsym $mod+Ctrl+l exec --no-startup-id i3lock-fancy
 exec_always --no-startup-id picom
 
 ## Wallpaper
-exec --no-startup-id bash -c 'while true; do feh --bg-fill --randomize ~/Pictures/Wallpapers/*; sleep 5m; done'
+exec --no-startup-id bash -c 'while true; do feh --bg-fill --randomize ~/Pictures/Wallpapers/*; sleep 2m; done'
 # exec --no-startup-id feh --bg-scale ~/Pictures/Wallpapers/wallpaper-1.jpg
 #
 exec --no-startup-id /usr/lib/kdeconnectd

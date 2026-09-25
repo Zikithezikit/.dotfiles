@@ -28,8 +28,8 @@ Usage: $0 [-p root_password] [-v]
   -v              Verbose: stream command output to the terminal
   -h              Show this help
 
-Installs apt packages, ghostty, and stows every config dir in this repo
-into \$HOME.
+Installs apt packages, ghostty, reef (bash compat for fish), and stows every
+config dir in this repo into \$HOME.
 EOF
 }
 
@@ -64,6 +64,10 @@ run_privileged() {
 
 SPINNER_PID=""
 
+# Temp workspace used by install_reef (empty when nothing is in flight).
+# cleanup() wipes it so an aborted run never leaves a clone/build behind.
+REEF_TMP=""
+
 # Flying in a background process while a step runs. Braille frames are
 # picked because they look smooth at slow refreshes.
 spin() {
@@ -96,6 +100,7 @@ stop_spinner() {
 # stray animation is never left behind on the terminal.
 cleanup() {
   { kill "$SPINNER_PID"; } 2>/dev/null
+  { [ -n "$REEF_TMP" ] && rm -rf "$REEF_TMP"; } 2>/dev/null
   printf "\033[2K\r"
 }
 trap cleanup EXIT
@@ -232,6 +237,42 @@ if [ -z "$STOW_FAILED" ]; then
 else
   step_error "Some configs failed to stow"
 fi
+
+# --- Reef (bash compatibility layer for fish) ---
+
+# reef is what makes fish accept bash syntax. Everything is cloned and built
+# inside a throwaway mktemp dir under $TMPDIR so neither the source tree nor
+# cargo's target/ lingers; only the binary (~/.local/bin/reef) and the fish
+# files reef's own installer copies into ~/.config/fish are kept.
+# Must run AFTER the stow step: reef writes into ~/.config/fish, and stow
+# aborts the whole fish package if it finds plain files where links go.
+install_reef() {
+  # reef needs rustc >= 1.85 (edition 2024), newer than Ubuntu's cargo package,
+  # so bootstrap rustup when cargo is missing instead of apt install cargo.
+  if ! command -v cargo >/dev/null 2>&1; then
+    curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs |
+      sh -s -- -y --profile minimal --no-modify-path || return 1
+    export PATH="$HOME/.cargo/bin:$PATH"
+  fi
+
+  REEF_TMP="$(mktemp -d "${TMPDIR:-/tmp}/reef-install.XXXXXX")" || return 1
+  local status=0
+  (
+    cd "$REEF_TMP" &&
+      git clone --depth 1 https://github.com/ZStud/reef reef &&
+      cd reef &&
+      cargo build --release &&
+      install -Dm755 target/release/reef "$HOME/.local/bin/reef" &&
+      PATH="$HOME/.local/bin:$PATH" fish fish/install.fish
+  ) || status=$?
+  # Dropped here on success/failure, and again by the EXIT trap if Ctrl-C
+  # lands mid-build, so the temp clone never survives the install.
+  rm -rf "$REEF_TMP"
+  REEF_TMP=""
+  return $status
+}
+
+if run_step "Install reef (bash compat for fish)" install_reef; then :; else FAILED="1"; fi
 
 # --- Tmux plugins (TPM) ---
 

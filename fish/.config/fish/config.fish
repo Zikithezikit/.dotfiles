@@ -10,7 +10,8 @@ alias audio_server="as-cmd --bind=10.100.102.20 --encoding=f32 --channels=2 --sa
 alias netflix_remote="export XAUTHORITY='$HOME/.Xauthority' && gtk-launch Netflix"
 
 # Created by `pipx` on 2025-10-30 08:00:02
-set PATH $PATH /home/server-yoav/.local/bin
+# $HOME (not a hardcoded path) so reef and friends are found on any PC.
+set PATH $PATH $HOME/.local/bin
 
 # npm global binaries
 fish_add_path /home/server-yoav/.npm-global/bin
