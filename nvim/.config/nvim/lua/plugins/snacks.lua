@@ -17,6 +17,9 @@ return {
           },
         },
       },
+      image = {
+        enabled = true, -- Enable image preview
+      },
     },
   },
 }
