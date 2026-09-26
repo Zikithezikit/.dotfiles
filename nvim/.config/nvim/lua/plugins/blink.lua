@@ -4,6 +4,7 @@ return {
     keymap = {
       preset = "default",
       ["<Tab>"] = { "accept", "fallback" },
+      ["<CR>"] = { "accept", "fallback" },
     },
   },
 }
