@@ -315,3 +315,12 @@ exec --no-startup-id bash -c 'while true; do feh --bg-fill --randomize ~/Picture
 exec --no-startup-id /usr/lib/kdeconnectd
 exec --no-startup-id kdeconnect-indicator
 
+
+# Night light. Warms the screens from dusk (16:00) to dawn (05:00); the schedule
+# lives in ~/.config/gammastep/config.ini, which is stowed from this repo.
+#
+# `i3-msg reload` re-runs this line, so kill any running instance first:
+# two daemons writing the same gamma ramps would otherwise fight, and the one
+# that exits last restores neutral, wiping the other's effect.
+exec_always --no-startup-id sh -c 'pkill -x gammastep; sleep 1; gammastep'
+bindsym $mod+Shift+g exec --no-startup-id pkill -USR1 -x gammastep
