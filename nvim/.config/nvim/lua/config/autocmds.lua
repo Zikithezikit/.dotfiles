@@ -6,3 +6,15 @@
 --
 -- Or remove existing autocmds by their group name (which is prefixed with `lazyvim_` for the defaults)
 -- e.g. vim.api.nvim_del_augroup_by_name("lazyvim_wrap_spell")
+--
+-- Force files ending with .py to declare python layouts on entry
+vim.api.nvim_create_autocmd({ "BufRead", "BufNewFile" }, {
+  pattern = "*.py",
+  command = "set filetype=python",
+})
+-- Force Neovim to always bind .py extensions to the python filetype natively
+vim.filetype.add({
+  extension = {
+    py = "python",
+  },
+})
