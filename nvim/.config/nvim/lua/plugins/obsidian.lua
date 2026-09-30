@@ -81,6 +81,21 @@ local ICON_FALLBACK = {
   pdf = "", -- nf-fa-file_pdf_o
 }
 
+-- Disable the plugin's own buffer-local <CR> / [o / ]o, which ftplugin/markdown.lua replaces.
+--
+-- obsidian.nvim registers these from its BufEnter autocmd (autocmds.lua:63-71) whenever
+-- `vim.g.obsidian_default_keymap` is not exactly `false`. This global is the switch upstream
+-- provides for it. It has to be set here at file scope rather than inside post_setup, because
+-- BufEnter for the first markdown buffer can fire before post_setup runs.
+vim.g.obsidian_default_keymap = false
+
+-- Why the replacements live in ftplugin/markdown.lua and not in this spec's `keys` table:
+-- `buffer = true` entries in a `lazy = true` spec never materialise. Verified by defining them
+-- here and finding no [o / ]o / <CR> in `nvim_buf_get_keymap` at all -- whether the plugin was
+-- loaded by its filetype trigger or force-loaded. lazy.nvim only materialises such keys when the
+-- key's own condition triggers the load, and `ft = "markdown"` loads the plugin without them. An
+-- ftplugin is sourced by Neovim itself, per buffer, so it always applies.
+
 return {
   "obsidian-nvim/obsidian.nvim",
   version = "*", -- latest tagged release; overrides this config's global `version = false`
@@ -104,6 +119,7 @@ return {
     { "<leader>ou", "<cmd>Obsidian unique_note<cr>", desc = "Obsidian: Quick capture" },
     { "<leader>of", "<cmd>Obsidian follow_link vsplit<cr>", desc = "Obsidian: Follow link (split)" },
     { "<leader>oi", "<cmd>Obsidian insert_template<cr>", desc = "Obsidian: Insert template" },
+    { "<leader>op", "<cmd>Obsidian paste_img<cr>", desc = "Obsidian: Paste image" },
     {
       "<leader>ch",
       "<cmd>Obsidian toggle_checkbox<cr>",
@@ -193,6 +209,23 @@ return {
 
     new_notes_location = "current_dir",
 
+    -- Keep non-note files out of ripgrep, the cache index, and backlink counts.
+    --
+    -- `templates/` in particular is actively harmful when searchable: :Obsidian search and
+    -- :Obsidian backlinks are both ripgrep-backed, and every template's headings are live
+    -- hits. Verified before this was added: `rg "## Focus"` across the vault returned
+    -- templates/daily/daily-note.md, so a search for text you had merely *templated* looks
+    -- like a real match, and a template's `[[]]` placeholders count as backlinks.
+    --
+    -- These are gitignore-style globs relative to the vault root, applied by ignore.lua to
+    -- search, cache indexing, LSP attach, and frontmatter handling. `assets/` is binary, so
+    -- it is only a speedup; `templates/` is the one that changes results.
+    --
+    -- Note this is *separate* from the EXCLUDED_FOLDERS table at the top of this file, which
+    -- only controls which folders <leader>ow offers. That one has to be hardcoded because it
+    -- lists directories; this one is glob matching done by the plugin.
+    file = { ignore_filters = { "templates", "assets" } },
+
     -- PARA: the folder you are in wins. Notes created at the vault root go to Inbox.
     --
     -- There is deliberately no vim.ui.select prompt here. note_path_func must return a path
@@ -230,6 +263,22 @@ return {
     -- link-suggestion inlay hints. Stored under stdpath("cache") as a JSON index; if it ever
     -- goes stale, `:Obsidian rebuild_cache`.
     cache = { enabled = true },
+
+    -- Without this, quick capture silently overwrites itself.
+    --
+    -- unique_note resolves its directory in two independent steps that have to agree:
+    --   1. unique.lua:resolve_unique_note_dir() returns `unique_note.folder` (or the vault
+    --      root when unset) and new_unique_id() scans *that* directory for an existing stem.
+    --   2. Note.create() then routes the write through note_path_func above, which sends
+    --      anything at the vault root to Inbox.
+    -- With `folder` unset, step 1 scans the root -- which holds no unique notes, because
+    -- step 2 never writes there. So the collision check never sees the file it just made,
+    -- hands back the same id, and the second <leader>ou in a given minute overwrites the
+    -- first. Naming the folder makes both steps look at Inbox, and the increment in
+    -- generate_unique_id() has something to collide with.
+    --
+    -- Verified: two captures at the same timestamp now give ...1616.md and ...1617.md.
+    unique_note = { folder = "Inbox" },
 
     daily_notes = {
       folder = "Areas/journal",
@@ -326,6 +375,25 @@ return {
       separator = "", -- blank line instead of the default 80-dash rule
     },
 
+    -- Off, explicitly, because the default is `true` and nothing here reads it.
+    --
+    -- `statusline.format` and `footer.format` default to the *same* string, and
+    -- footer/init.lua computes the note status once and then either writes it to the buffer's
+    -- virtual footer line or to `b:obsidian_status` (or both). The statusline half is only
+    -- visible if something reads that variable -- the wiki's own page says so, and the recipe
+    -- is a `lualine_x` section containing "b:obsidian_status". This config has no such
+    -- section, and the LazyVim lualine default does not include it; grepping the whole plugin
+    -- directory, nothing outside obsidian.nvim itself ever reads the name.
+    --
+    -- So with the default on, every buffer enter formats a status string a second time and
+    -- assigns it to a buffer variable that goes unread. The statusline module is also the
+    -- documented predecessor of `footer`, which is enabled above and shows the same numbers
+    -- where you will actually see them.
+    --
+    -- To turn it back on later, set this to true and add to lualine:
+    --   sections = { lualine_x = { "b:obsidian_status" } }
+    statusline = { enabled = false },
+
     -- render-markdown.nvim is installed (LazyVim's lang.markdown extra), so obsidian.nvim skips
     -- its own extmark UI regardless (workspace.lua:172). Being explicit also keeps the two
     -- renderers out of each other's :checkhealth. Obsidian's UI module is slated for removal
@@ -340,6 +408,29 @@ return {
         end
         icons.kinds.note = ICON_FALLBACK.md
         icons.kinds.pdf = ICON_FALLBACK.pdf
+
+        -- Remove the "Merge current note into another note" code action: it destroys data.
+        --
+        -- Upstream issue #982, still open in v3.16.8. The handler (actions.lua, local
+        -- merge_note) does this after a "Yes" confirmation:
+        --
+        --     dst_note:merge(current_note)      -- adds aliases/tags to the in-memory object
+        --     dst_note:open { sync = true }     -- opens it; sync does not write frontmatter
+        --     vim.fs.rm(current_note.path)      -- deletes the source outright
+        --
+        -- There is no `write`/`save` on the destination, and Note.merge returns early when the
+        -- source has no frontmatter, so the body is never copied under any circumstance. The
+        -- prompt reads 'merge "a" to "b"? "a" will be deleted', which implies the content is
+        -- preserved; in practice the action is equivalent to deleting the note, and any link
+        -- pointing at it becomes a broken link. The vault is git-tracked, so `git show` is the
+        -- only way back.
+        --
+        -- There is no config option for this, and `del` is exported from the code-action module
+        -- but called from nowhere else in the plugin, so this is the intended escape hatch. Only
+        -- the gr/grr menu entry disappears -- `require("obsidian.actions").merge_note` still
+        -- exists, and the `require`d action list is rebuilt at setup, so re-adding it later means
+        -- deleting this line.
+        require("obsidian.lsp.handlers._code_action").del "merge_note"
       end,
     },
   },

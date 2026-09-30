@@ -40,6 +40,7 @@ return {
         { "<leader>ou", icon = { icon = "󱐋", color = "orange" } }, -- md-lightning_bolt
         { "<leader>of", icon = { icon = "󰜴NTA", color = "green" } }, -- md-arrow_right_bold
         { "<leader>oi", icon = { icon = "󰈚", color = "purple" } }, -- md-text_box
+        { "<leader>op", icon = { icon = "󰆒", color = "green" } }, -- md-content_paste
         { "<leader>oc", icon = { icon = "󰉋", color = "yellow" } }, -- md-folder
         { "<leader>ow", icon = { icon = "󰪶", color = "green" } }, -- md-file_cabinet
         { "<leader>ch", icon = { icon = "󰄲", color = "green" } }, -- md-checkbox_marked
