@@ -1,0 +1,79 @@
+# Settings for running i3 inside a TurboVNC X server on WSL.
+#
+# Sourced (as POSIX sh) by both:
+#   ~/.config/i3-wsl/xsession   - the X session the VNC server starts
+#   ~/.local/bin/i3-wsl         - the start/stop wrapper
+#
+# Keep this file POSIX-sh compatible: it is read by /bin/sh, not bash.
+
+# ---------------------------------------------------------------------------
+# Display
+# ---------------------------------------------------------------------------
+
+# X display number. :12 maps to RFB port 5912, which is what the Windows
+# VNC viewer connects to. Any unused number >= 1 works; keep the two in sync.
+DISPLAY_NUM=12
+
+# Address the session's own clients use to reach the X server.
+#
+# This is 127.0.0.1 rather than a bare ":12" on purpose. WSLg mounts
+# /tmp/.X11-unix as a *read-only* tmpfs for its own display, so Xvnc cannot
+# create the socket for :12 there, and a client using DISPLAY=:12 only ever
+# tries the local socket and gives up with "Cannot open display". Xvnc is
+# therefore started with -nolisten unix, and clients reach it over TCP on
+# loopback instead -- same machine, no exposure.
+DISPLAY_ADDR=127.0.0.1
+
+# Virtual screen size. Match the monitor the viewer will be fullscreen on, or
+# the viewer scales and the mouse coordinates skew.
+#
+# Remote resize is disabled by install-wsl.sh, precisely so this value sticks:
+# when a client is allowed to resize the desktop, the screen grows to the
+# client's size while the output keeps the position it was given, and i3 then
+# places windows off the right-hand edge of the screen.
+#
+# One monitor:  put the viewer's window on that monitor and use its resolution.
+# Two monitors: pick one -- the desktop does not span both, because a single
+# Xvnc screen with mismatched monitor heights would be 1920x1200 + letterbox.
+#
+# Under WSL: powershell.exe -NoProfile -Command \
+#   "[System.Windows.Forms.Screen]::AllScreens | % { $_.DeviceName }"
+# or simply: powershell.exe -NoProfile -Command \
+#   "Get-CimInstance Win32_VideoController | select CurrentHorizontalResolution,CurrentVerticalResolution"
+GEOMETRY=1920x1200
+
+# Xvnc colour depth. 24 is the usual 32bpp framebuffer. Dropping to 16 (as
+# the original TurboVNC-in-WSL write-up does) noticeably reduces VNC
+# bandwidth, at the cost of banding in gradients and wallpaper. Start at 24
+# and only lower it if the session feels sluggish over the link.
+DEPTH=24
+
+# ---------------------------------------------------------------------------
+# Keyboard
+# ---------------------------------------------------------------------------
+
+# Layout applied by xsession before i3 starts. Comma-separated list; the
+# first entry is the default. i3's own `setxkbmap` line runs again afterwards
+# and is the authority for the group toggle option.
+LAYOUT=us,il
+
+# ---------------------------------------------------------------------------
+# Security
+# ---------------------------------------------------------------------------
+
+# TurboVNC is always started with -localhost, so it only accepts connections
+# forwarded from Windows itself. Set a password as well if you want a second
+# layer (e.g. for a machine on a shared or untrusted network):
+#
+#   /opt/TurboVNC/bin/vncpasswd -f < ~/.config/i3-wsl/vncpass > ~/.vnc/i3-wsl.passwd
+#
+# then set this to that file's path. Left empty, the server runs with
+# SecurityTypes None.
+RFBAUTH=
+
+# ---------------------------------------------------------------------------
+# Escape hatch
+# ---------------------------------------------------------------------------
+
+# Extra flags appended to the vncserver/Xvnc command line.
+XVNC_EXTRA=

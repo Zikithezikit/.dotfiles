@@ -1,0 +1,121 @@
+#!/bin/sh
+#
+# The X session that the TurboVNC server runs on its own display.
+#
+# Why this exists at all: WSLg already runs a window manager (Weston) on its
+# own display, which is why a plain `i3` inside WSL refuses to start with
+# "ERROR: Another window manager is already running", and WSLg will not let
+# you replace it. The fix is not to fight WSLg but to sidestep it -- we run a
+# second, independent X server (Xvnc, from TurboVNC) which has no window
+# manager at all, and i3 is free to be the one on that display.
+#
+# TurboVNC invokes this via `-xstartup`. It must end in an exec of the
+# session's window manager, otherwise Xvnc tears the display down.
+
+CONF="${XDG_CONFIG_HOME:-$HOME/.config}/i3-wsl/config"
+# shellcheck source=/dev/null
+[ -r "$CONF" ] && . "$CONF"
+
+DISPLAY_NUM="${DISPLAY_NUM:-12}"
+DISPLAY_ADDR="${DISPLAY_ADDR:-127.0.0.1}"
+LAYOUT="${LAYOUT:-us,il}"
+
+# ---------------------------------------------------------------------------
+# Point the session at our own X display
+# ---------------------------------------------------------------------------
+# Two ways to reach an X server, and which one works depends on the machine:
+#
+#   "unix socket"  DISPLAY=:12. The normal case, but it needs a socket in
+#                  /tmp/.X11-unix. WSLg mounts that directory as its own
+#                  read-only tmpfs for its display, so with WSLg running there
+#                  is nowhere for a second X server to put one.
+#   "TCP"          DISPLAY=127.0.0.1:12, used when that directory is not
+#                  writable. The launcher pairs this with -listen tcp, since
+#                  TurboVNC disables X11 TCP by default.
+#
+# i3-wsl works out which applies and passes the matching -listen/-nolisten
+# flags; this must agree with it or clients will not find the display.
+#
+# No Xauthority juggling is needed on the TCP path. Xvnc writes a single
+# cookie for the session into the file named by its -auth flag, which is
+# ~/.Xauthority here, and XAUTHORITY is deliberately left unset so every client
+# finds that file by default. Xvnc accepts the cookie for loopback connections
+# whatever address they arrive from, so pointing clients at 127.0.0.1 is enough.
+#
+# A client with no valid cookie is refused -- but it reports that as "No
+# protocol specified", which is Xlib's generic "could not connect" message and
+# is also what you get when the port is closed. That is how this looked before
+# -listen tcp was passed, which is the actual fix.
+if [ -w /tmp/.X11-unix ]; then
+    export DISPLAY=":${DISPLAY_NUM}"
+else
+    export DISPLAY="${DISPLAY_ADDR}:${DISPLAY_NUM}"
+fi
+
+# WSLg also exports WAYLAND_DISPLAY, and it is *valid* here -- it points at
+# the Weston compositor running inside the VM. Left set, any GTK4 or
+# libadwaita app would connect to it and pop up as a freestanding WSLg
+# window outside i3, instead of tiling inside the session. Unsetting these
+# forces everything onto X11.
+unset WAYLAND_DISPLAY
+unset XDG_SESSION_TYPE
+unset SESSION_MANAGER
+
+# Same reasoning one level down. GTK4 picks its display backend itself, and
+# with WAYLAND_DISPLAY unset it does not reliably fall back to X11 -- it can
+# start, run the shell, and never put a window on the screen at all.
+export GDK_BACKEND=x11
+
+# ...and this one is what makes a GTK4 window behave under a tiling window
+# manager here. GSK's OpenGL renderer draws into a *subsurface*: GTK creates a
+# hidden 1x1 override-redirect toplevel and puts the real window underneath it
+# as a child. A window manager only ever sees root children, so i3 cannot
+# manage that window -- it keeps whatever size and position GTK chose, ignores
+# tiling, moving and focus, and looks like a stray floating window that "does
+# not fit" in i3. This server has no DRI3/EGL device ("Could not get DRI3
+# device"), which is what pushes GTK down that path in the first place.
+#
+# Asking for the cairo renderer gives GTK an ordinary managed toplevel
+# instead, and costs nothing here: there is no GPU for the GL path to use.
+export GSK_RENDERER=cairo
+
+# WSLg's D-Bus broker is bound to the WSLg session and cannot be reused by a
+# second X session. Unset it here; a private bus is started further down.
+unset DBUS_SESSION_BUS_ADDRESS
+
+# ---------------------------------------------------------------------------
+# Keyboard
+# ---------------------------------------------------------------------------
+# Xvnc has no keyboard configuration of its own, so without this the layout
+# falls back to a bare us keymap and dead keys, AltGr and friends misbehave.
+if command -v setxkbmap >/dev/null 2>&1; then
+    setxkbmap -model pc105 -layout "$LAYOUT"
+fi
+
+# Two keycode quirks that show up specifically under WSL/Xvnc and are taken
+# from the TurboVNC-in-WSL write-up this setup is based on:
+#   78  - a US keyboard's third Scroll Lock is reported as a lock-toggle that
+#         apps like Emacs act on out of nowhere
+#   108 - the right Alt key, which Xvnc never wires up to ISO_Level3_Shift,
+#         so AltGr-composed characters (|, \, <, ~ on us-il) never appear
+if command -v xmodmap >/dev/null 2>&1; then
+    xmodmap -e "keycode 78 = "                2>/dev/null
+    xmodmap -e "keycode 108 = ISO_Level3_Shift" 2>/dev/null
+    xmodmap -e "clear mod5"                    2>/dev/null
+    xmodmap -e "add mod5 = ISO_Level3_Shift"    2>/dev/null
+fi
+
+# ---------------------------------------------------------------------------
+# Session bus
+# ---------------------------------------------------------------------------
+# Everything i3 spawns -- rofi, ghostty, pavucontrol, the polybar tray --
+# expects a session bus to talk over. Start a private one; do not try to
+# reuse WSLg's.
+if [ -z "$DBUS_SESSION_BUS_ADDRESS" ] && command -v dbus-launch >/dev/null 2>&1; then
+    eval "$(dbus-launch --sh-syntax)"
+fi
+
+# ---------------------------------------------------------------------------
+# Become the window manager
+# ---------------------------------------------------------------------------
+exec i3

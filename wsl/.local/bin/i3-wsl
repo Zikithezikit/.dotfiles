@@ -1,0 +1,337 @@
+#!/usr/bin/env bash
+#
+# i3-wsl -- run i3 inside a TurboVNC X server on WSL.
+#
+# WSLg owns its own display and always has Weston sitting on it, so i3 will
+# not start there ("ERROR: Another window manager is already running") and
+# WSLg will not surrender the display. Instead this drives a second,
+# independent X server (Xvnc from TurboVNC) on a display of its own, where i3
+# is the only window manager, and you view it from Windows in a VNC client.
+#
+#   i3-wsl start     start the X server + i3
+#   i3-wsl stop      tear the session down
+#   i3-wsl restart   stop, then start
+#   i3-wsl status    is it up, and what to type on the Windows side
+#   i3-wsl logs      follow the session's stdout/stderr
+#   i3-wsl env       exports for pointing an existing shell at the session
+#   i3-wsl doctor    check every dependency this setup needs
+#
+# Settings live in ~/.config/i3-wsl/config.
+
+set -uo pipefail
+
+VNCROOT=/opt/TurboVNC
+VNCSERVER="$VNCROOT/bin/vncserver"
+SESSION="${XDG_CONFIG_HOME:-$HOME/.config}/i3-wsl/xsession"
+CONF="${XDG_CONFIG_HOME:-$HOME/.config}/i3-wsl/config"
+STATE="${XDG_STATE_HOME:-$HOME/.local/state}/i3-wsl"
+LOG="$STATE/vnc.log"
+
+c_r=$'\033[0m'; c_dim=$'\033[2m'; c_red=$'\033[1;31m'
+c_grn=$'\033[1;32m'; c_ylw=$'\033[1;33m'; c_cyn=$'\033[1;36m'
+
+die()  { printf "${c_red}x${c_r} %s\n" "$*" >&2; exit 1; }
+info() { printf "${c_cyn}==>${c_r} %s\n" "$*"; }
+ok()   { printf "${c_grn}v${c_r} %s\n" "$*"; }
+warn() { printf "${c_ylw}!${c_r} %s\n" "$*"; }
+
+# Pull DISPLAY_NUM / GEOMETRY / DEPTH / RFBAUTH / XVNC_EXTRA out of the config.
+[ -r "$CONF" ] || die "no config at $CONF -- is the 'wsl' package stowed?"
+# shellcheck source=/dev/null
+. "$CONF"
+
+: "${DISPLAY_NUM:=12}"
+: "${DISPLAY_ADDR:=127.0.0.1}"
+: "${GEOMETRY:=1920x1200}"
+: "${DEPTH:=24}"
+: "${XVNC_EXTRA:=}"
+PORT=$((5900 + DISPLAY_NUM))
+
+# ---------------------------------------------------------------------------
+# Pick a transport for the X clients inside the session
+# ---------------------------------------------------------------------------
+# The normal case is a Unix domain socket in /tmp/.X11-unix, which is what a
+# bare "DISPLAY=:12" uses.
+#
+# WSLg, however, mounts /tmp/.X11-unix as its own *read-only* tmpfs so it can
+# hand out the socket for its display, which leaves nowhere for a second X
+# server to create one. Xvnc then logs "failed to bind listener" and every
+# client fails with "Cannot open display". So when that directory is not
+# writable, fall back to X11 over TCP on loopback -- which needs -listen tcp,
+# because TurboVNC disables X11 TCP by default, and needs an Xauthority entry
+# for 127.0.0.1 (see the xsession script).
+#
+# Turning WSLg off (guiApplications=false in .wslconfig) makes the Unix socket
+# work again, which is the tidier arrangement: no X11 TCP listener at all.
+if [ -w /tmp/.X11-unix ]; then
+    TRANSPORT="unix socket"
+    X11_ARGS=()
+else
+    TRANSPORT="TCP on $DISPLAY_ADDR (WSLg has /tmp/.X11-unix read-only)"
+    X11_ARGS=(-listen tcp -nolisten unix)
+fi
+
+mkdir -p "$STATE"
+
+# Xvnc does not change its argv, so a display match is a reliable liveness
+# test. (-fg keeps it in our process tree rather than the vncserver wrapper's.)
+running() { pgrep -f "Xvnc :$DISPLAY_NUM( |$)" >/dev/null 2>&1; }
+
+# Is the desktop actually the size we asked for, sitting at the origin?
+#
+# This catches the single most confusing failure in this whole setup: TurboVNC
+# lets the client resize the X screen, and when the client's idea of the screen
+# is bigger than ours the *output* keeps the position it was given rather than
+# growing with it. You end up with a 3840-wide screen whose 1920-wide output
+# sits at x=1920, so i3 dutifully tiles every window off the right-hand edge
+# and nothing appears to fit. It looks like a window-manager bug and is not.
+check_geometry() {
+    command -v xrandr >/dev/null 2>&1 || return 0
+    local line screen out geom_w geom_h
+    line="$(DISPLAY="${DISPLAY_ADDR:-127.0.0.1}:$DISPLAY_NUM" xrandr --query 2>/dev/null | head -1)"
+    out="$(DISPLAY="${DISPLAY_ADDR:-127.0.0.1}:$DISPLAY_NUM" xrandr --query 2>/dev/null | grep -m1 ' connected')"
+    geom_w="${GEOMETRY%x*}"
+    geom_h="${GEOMETRY#*x}"
+
+    # Screen line looks like: "Screen 0: ... current 3840 x 1200, maximum ..."
+    screen="$(printf '%s' "$line" | sed -n 's/.*current \([0-9]*\) x \([0-9]*\).*/\1x\2/p')"
+    if [ -n "$screen" ] && [ "$screen" != "$GEOMETRY" ]; then
+        warn "X screen is $screen but GEOMETRY is $GEOMETRY."
+        printf '     %sThe viewer resized the desktop, and the output kept its old\n' "$c_dim"
+        printf '     position, so i3 is placing windows off the visible area.%s\n\n' "$c_r"
+        printf '     Fix it with ONE of:\n'
+        printf '       %s* pin the size (best):%s re-run the installer to turn on\n' "$c_dim" "$c_r"
+        printf '         %sno-remote-resize%s in /etc/turbovncserver-security.conf\n' "$c_dim" "$c_r"
+        printf '         %sbash wsl/install-wsl.sh%s   (asks for your password)\n' "$c_dim" "$c_r"
+        printf '       %s* or accept the size:%s set %sGEOMETRY=%s%s in\n' "$c_dim" "$c_r" "$c_dim" "$screen" "$c_r"
+        printf '         %s~/.config/i3-wsl/config%s and restart the session\n' "$c_dim" "$c_r"
+        printf '\n'
+        return 1
+    fi
+
+    # Output not at the origin, with a single output: same class of problem.
+    case "$out" in
+        *"+0+0 "*|*'+0+0'*) : ;;
+        *)  warn "The output is not at the top-left of the screen: ${out#*connected }"
+            printf '     Windows will place it wrongly until the size is pinned as above.\n\n'
+            return 1
+            ;;
+    esac
+    return 0
+}
+
+# ---------------------------------------------------------------------------
+
+cmd_start() {
+    running && die "already running on :$DISPLAY_NUM (port $PORT) -- 'i3-wsl stop' first"
+    [ -x "$VNCSERVER" ] || die "TurboVNC is not installed ($VNCSERVER missing).
+       Run:  bash ~/.dotfiles/wsl/install-wsl.sh"
+    [ -x "$SESSION" ]   || die "missing session script $SESSION"
+    [ -f "$XDG_RUNTIME_DIR/pulse/native" ] || \
+        [ -n "${PULSE_SERVER:-}" ] || warn "no PulseAudio server found -- volume keys will do nothing"
+
+    local auth=()
+    if [ -n "${RFBAUTH:-}" ]; then
+        [ -r "$RFBAUTH" ] || die "RFBAUTH=$RFBAUTH is not readable.
+       Create it with:  $VNCROOT/bin/vncpasswd"
+        auth=(-rfbauth "$RFBAUTH" -SecurityTypes VncAuth)
+    else
+        # Safe only because of -localhost below: unreachable from the network,
+        # reachable from Windows over the WSL2 localhost relay.
+        auth=(-SecurityTypes None)
+    fi
+
+    # Xvnc creates its socket at startup, so the directory has to exist before
+    # we launch it, not from inside the session. (Under WSLg it exists but is
+    # read-only, which is the case handled by TRANSPORT above.)
+    if [ "$TRANSPORT" = "unix socket" ] && [ ! -d /tmp/.X11-unix ]; then
+        mkdir -p /tmp/.X11-unix 2>/dev/null
+        chmod 1777 /tmp/.X11-unix 2>/dev/null
+    fi
+
+    info "starting Xvnc on :$DISPLAY_NUM (port $PORT) at ${GEOMETRY}, depth $DEPTH"
+    info "clients reach it over $TRANSPORT"
+    # setsid detaches the server from this terminal's session, so the session
+    # outlives the shell that started it. Combined with -fg it still logs to
+    # $LOG, which is why we background it ourselves instead of letting the
+    # wrapper daemonise and hide the output.
+    #
+    # The display argument must come FIRST. vncserver's -xstartup swallows
+    # every remaining argument as part of its command, so a trailing ":12" is
+    # silently eaten and the server comes up on the first free display (:1)
+    # instead -- which also puts RFB on the wrong port.
+    #
+    # -localhost is a boolean Xvnc flag with no value; passing "yes" makes
+    # Xvnc treat it as a positional argument and die with "Unrecognized
+    # option: yes".
+    #
+    # -rfbport is passed explicitly so the port stays tied to DISPLAY_NUM
+    # rather than to whatever display the server actually grabbed.
+    setsid "$VNCSERVER" \
+        ":$DISPLAY_NUM" \
+        -fg \
+        -depth "$DEPTH" \
+        -geometry "$GEOMETRY" \
+        -localhost \
+        -rfbport "$PORT" \
+        "${X11_ARGS[@]}" \
+        "${auth[@]}" \
+        $XVNC_EXTRA \
+        -xstartup "$SESSION" >>"$LOG" 2>&1 &
+
+    # Give Xvnc a moment to come up, then check that it actually did: a
+    # display-number clash or a bad -geometry otherwise only shows up much
+    # later as a blank window in the viewer.
+    local i
+    for i in $(seq 1 25); do
+        running && break
+        sleep 0.2
+    done
+
+    if ! running; then
+        printf "\n${c_red}The X server did not start. Last lines of %s:${c_r}\n" "$LOG"
+        tail -n 20 "$LOG" >&2
+        exit 1
+    fi
+
+    # Xvnc is up, but the session script still has to get as far as exec'ing
+    # i3, so give it a moment before declaring victory. A config error shows
+    # up here as i3 exiting straight away.
+    local j
+    for j in $(seq 1 25); do
+        pgrep -u "$(id -u)" -x i3 >/dev/null 2>&1 && break
+        sleep 0.2
+    done
+
+    if pgrep -u "$(id -u)" -x i3 >/dev/null 2>&1; then
+        ok "i3 is running on :$DISPLAY_NUM -- connect from Windows to ${c_cyn}localhost:$PORT${c_r} and go fullscreen"
+    else
+        warn "Xvnc is up but i3 exited. Session output:"
+        tail -n 20 "$LOG" >&2
+        exit 1
+    fi
+
+    # A resize by a connected viewer is invisible from here until you connect
+    # and find half your desktop missing, so say so now, while it is cheap to
+    # act on.
+    check_geometry || true
+}
+
+cmd_stop() {
+    if ! running; then
+        ok "nothing to stop on :$DISPLAY_NUM"
+        return 0
+    fi
+    info "stopping :$DISPLAY_NUM"
+    "$VNCSERVER" -kill ":$DISPLAY_NUM" >/dev/null 2>&1
+
+    local i
+    for i in $(seq 1 25); do
+        running || break
+        sleep 0.2
+    done
+    running && warn "Xvnc still alive; killing it"
+    pkill -f "Xvnc :$DISPLAY_NUM( |$)" 2>/dev/null
+
+    # These are all children of i3, so they lose their X connection when the
+    # server dies -- but not every one of them exits cleanly on its own, and
+    # a stale polybar will happily draw itself onto the next display it finds.
+    pkill -x polybar    2>/dev/null
+    pkill -x picom      2>/dev/null
+    pkill -x gammastep  2>/dev/null
+    pkill -x feh        2>/dev/null
+    pkill -x nm-applet  2>/dev/null
+    pkill -x rofi       2>/dev/null
+    ok "stopped"
+}
+
+cmd_status() {
+    if running; then
+        ok "Xvnc is up on :$DISPLAY_NUM (port $PORT)"
+        pgrep -u "$(id -u)" -x i3 >/dev/null 2>&1 \
+            && ok "i3 is running" \
+            || warn "i3 is NOT running -- see 'i3-wsl logs'"
+        printf "  %sconnect from Windows:  localhost:%s  then press Fullscreen%s\n" \
+            "$c_dim" "$PORT" "$c_r"
+    else
+        warn "not running -- start it with:  i3-wsl-up  (or: i3-wsl start)"
+    fi
+}
+
+cmd_logs() {
+    [ -f "$LOG" ] || die "no log yet at $LOG"
+    printf "${c_dim}following %s -- Ctrl-C to stop${c_r}\n" "$LOG"
+    tail -n 50 -f "$LOG"
+}
+
+# For running apps against the session from a shell you already have open.
+cmd_env() {
+    if [ "$TRANSPORT" = "unix socket" ]; then
+        printf 'export DISPLAY=":%s"\n' "$DISPLAY_NUM"
+    else
+        printf 'export DISPLAY="%s:%s"\n' "$DISPLAY_ADDR" "$DISPLAY_NUM"
+    fi
+    printf 'unset WAYLAND_DISPLAY XDG_SESSION_TYPE\n'
+    printf '# then, from another terminal:  %s start\n' "$(basename "$0")"
+}
+
+cmd_doctor() {
+    local bad=0
+    printf "\n%s%si3 in WSL -- dependency check%s\n\n" "$c_cyn" "$(printf '─%.0s' {1..30})" "$c_r"
+
+    if [ -x "$VNCSERVER" ]; then ok "TurboVNC        $("$VNCSERVER" -version 2>&1 | head -1)"
+    else bad=1; warn "TurboVNC        missing -- bash ~/.dotfiles/wsl/install-wsl.sh"; fi
+
+    if [ -x "$SESSION" ]; then ok "session script  $SESSION"
+    else bad=1; warn "session script  missing -- stow the 'wsl' package"; fi
+
+    for b in i3 setxkbmap xmodmap dbus-launch; do
+        if command -v "$b" >/dev/null 2>&1; then ok "$(printf '%-16s' "$b")  $(command -v "$b")"
+        else bad=1; warn "$(printf '%-16s' "$b")  missing (apt install ...)"; fi
+    done
+
+    for b in polybar rofi ghostty; do
+        if command -v "$b" >/dev/null 2>&1; then ok "$(printf '%-16s' "$b")  $(command -v "$b")"
+        else warn "$(printf '%-16s' "$b")  missing -- i3 keybindings for it will be dead"; fi
+    done
+
+    printf "\n%s%sfonts%s\n" "$c_cyn" "$(printf '─%.0s' {1..44})" "$c_r"
+    local f
+    for f in "Iosevka Nerd Font" "Symbols Nerd Font" "Symbols Nerd Font Mono" "FontAwesome" "DejaVu Sans Mono"; do
+        if fc-match "$f" 2>/dev/null | grep -q "$f"; then ok "$f"
+        else bad=1; warn "$f not installed -- icons will render as boxes"; fi
+    done
+
+    printf "\n%s%ssession%s\n" "$c_cyn" "$(printf '─%.0s' {1..44})" "$c_r"
+    printf '  %sgeometry%s   %s\n' "$c_dim" "$c_r" "$GEOMETRY"
+    printf '  %sdepth%s      %s\n' "$c_dim" "$c_r" "$DEPTH"
+    printf '  %spassword%s   %s\n' "$c_dim" "$c_r" \
+        "$([ -n "${RFBAUTH:-}" ] && echo "yes ($RFBAUTH)" || echo 'no (localhost only)')"
+    printf '  %sWSLg%s       left enabled; this session uses :%s instead of :0\n' \
+        "$c_dim" "$c_r" "$DISPLAY_NUM"
+    printf '  %sX socket%s   %s\n' "$c_dim" "$c_r" \
+        "$([ -w /tmp/.X11-unix ] && echo '/tmp/.X11-unix writable (unix sockets OK)' \
+                                 || echo '/tmp/.X11-unix read-only -- WSLg owns it, using TCP (expected)')"
+    if running; then
+        # A bad screen geometry is not cosmetic: i3 tiles windows off the
+        # visible area, so it must not be reported as "all good".
+        check_geometry || bad=1
+    else
+        printf '  %sscreen%s      %snot running\n' "$c_dim" "$c_r"
+    fi
+
+    printf '\n'
+    if [ "$bad" -eq 0 ]; then ok "all good"; else warn "fix the items above first"; fi
+    return 0
+}
+
+case "${1:-status}" in
+    start)   cmd_start   ;;
+    stop)    cmd_stop    ;;
+    restart) cmd_stop; sleep 1; cmd_start ;;
+    status)  cmd_status  ;;
+    logs)    cmd_logs    ;;
+    env)     cmd_env     ;;
+    doctor)  cmd_doctor  ;;
+    *)       sed -n '3,17p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+esac

@@ -1,0 +1,54 @@
+# Machine-specific i3 settings.
+#
+# The main config pulls this in with:
+#     include_if_exists ~/.config/i3.local.conf
+# so this file is OPTIONAL: with it absent, i3 starts with no per-machine
+# setup at all (which is exactly right for the WSL/VNC session, whose single
+# virtual screen has no named outputs to configure).
+#
+# To use it:
+#     cp ~/.config/i3/i3.local.conf.example ~/.config/i3.local.conf
+#     $EDITOR ~/.config/i3.local.conf
+#
+# It is a real i3 config, not a shell script: `set`, `bindsym`, `exec` and
+# `workspace ... output` all work normally. Anything here wins over the main
+# config only for directives that appear later -- i3 applies these in file
+# order, and the include sits near the top, so prefer re-stating a directive
+# over expecting an override.
+#
+# It is intentionally NOT in the repo: its contents are per-machine.
+
+# ---------------------------------------------------------------------------
+# Multi-monitor layout
+# ---------------------------------------------------------------------------
+# Output names come from `xrandr --query`. DP-* is almost always the laptop or
+# a DisplayPort panel, DVI-D-* a DVI port, HDMI-* an HDMI TV or monitor.
+#
+# exec --no-startup-id xrandr --output DP-1 --primary --mode 1920x1080 --pos 0x0 --auto
+# exec --no-startup-id xrandr --output DVI-D-0 --right-of DP-1 --mode 1920x1080 --auto
+#
+# Keep workspaces 1 and 2 on their own screens, so $mod+Prior / $mod+Next
+# (workspace next_on_output) stay useful and $mod+m can move a workspace to
+# the monitor next to it.
+#
+# workspace 1 output DP-1
+# workspace 2 output DVI-D-0
+
+# Mode switch and resolution cycling, against your own helper scripts.
+#
+# bindsym $mod+Shift+s exec --no-startup-id ~/.dotfiles/bin/monitor
+# bindsym $mod+Shift+n exec --no-startup-id ~/.dotfiles/bin/resolution
+
+# ---------------------------------------------------------------------------
+# Compositor
+# ---------------------------------------------------------------------------
+# picom is what draws window transparency, and i3 draws none of its own. It is
+# started unconditionally by the main config, which is right on a real GPU
+# X session.
+#
+# On the WSL/VNC session it is not: that display is a software-rasterised
+# Xvnc, so picom composites every frame on the CPU for no visible gain (this
+# config sets no window opacity, so there is nothing for it to blend). To
+# switch it off there, uncomment:
+#
+# # exec --no-startup-id pkill -x picom

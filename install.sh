@@ -189,7 +189,30 @@ install_ppa() {
   fi
 }
 
-packages=(curl git stow neovim fish tmux i3 i3status i3lock rofi git-delta polybar)
+# The i3 group: i3 itself plus everything the configs in this repo actually
+# shell out to. Without these i3 still starts, but the bar renders as blank
+# boxes, most keybindings are dead, and the volume keys do nothing -- which is
+# easy to mistake for a broken i3 config.
+#
+# wsl/install-wsl.sh is NOT run from here: it is a separate, opt-in step for
+# the WSL/VNC setup, and it installs software from outside apt.
+packages=(
+  curl git stow neovim fish tmux
+  i3 i3status i3lock i3lock-fancy
+  rofi polybar
+  picom            # compositing; i3 draws no transparency of its own
+  feh              # wallpaper
+  xbacklight       # brightness keys
+  pavucontrol      # polybar's volume module, right-click
+  pulseaudio-utils # pactl, for the volume keys and polybar's pulse module
+  alsa-utils
+  xclip            # clipboard over X11
+  git-delta
+  gammastep          # night light; the schedule is stowed from gammastep/
+  fonts-font-awesome  # the icons in the i3 workspace names
+  fonts-dejavu-core
+  dbus-x11         # dbus-launch, for a session bus
+)
 
 # Sudo is a hard requirement for everything below: verify it and stop here
 # with instructions if it is not usable. Called directly (not via run_step)

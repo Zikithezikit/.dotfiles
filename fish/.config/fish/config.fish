@@ -404,3 +404,6 @@ function frg --description "Live interactive ripgrep + fzf preview"
         $editor +$line "$file"
     end
 end
+
+# opencode
+fish_add_path /home/yoav/.opencode/bin

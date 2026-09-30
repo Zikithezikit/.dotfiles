@@ -1,0 +1,6 @@
+# Files here are for humans, not for $HOME: docs, the installer, and the
+# Windows launcher (which belongs on the Windows Desktop, not symlinked into
+# a Linux home directory).
+^README\.md$
+^install-wsl\.sh$
+^windows$

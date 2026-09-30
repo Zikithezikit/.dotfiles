@@ -68,17 +68,29 @@ font pango:DejaVu Sans Mono, FontAwesome 16
 # X core fonts rendering does not support right-to-left and this being a bitmap
 # font, it doesn’t scale on retina/hidpi displays.
 
-# Screen movement
-# DP-1 (left), DVI-D-0 (right)
-exec --no-startup-id xrandr --output DP-1 --primary --mode 1920x1080 --pos 0x0 --auto
-exec --no-startup-id xrandr --output DVI-D-0 --right-of DP-1 --mode 1920x1080 --auto
+# ---------------------------------------------------------------------------
+# Machine-specific settings
+# ---------------------------------------------------------------------------
+# Everything that depends on *this* machine's outputs, panels and helper
+# scripts lives in ~/.config/i3.local.conf, which is pulled in only if it
+# exists. That indirection is what lets one config serve both a two-monitor
+# desktop and the WSL/VNC session, whose single virtual screen has no DP-1 or
+# DVI-D-0 for a `workspace ... output` or `xrandr --output` line to act on --
+# those would otherwise be logged as errors on every start.
+#
+# i3.local.conf.example in this directory is a filled-in version; copy it to
+# ~/.config/i3.local.conf and edit to taste. It is deliberately NOT part of
+# the repo, because its contents differ per machine.
+include_if_exists ~/.config/i3.local.conf
 
 # Use Mouse+$mod to drag floating windows to their wanted position
 floating_modifier $mod
 
 # start a terminal
-# bindsym $mod+Return exec i3-sensible-terminal
-# bindsym $mod+Return exec alacritty
+# ghostty is GTK4, and on a software-rendered X server it only produces a
+# window the window manager can actually manage when the session exports
+# GDK_BACKEND=x11 and GSK_RENDERER=cairo. The WSL session does exactly that;
+# on an ordinary desktop neither is needed.
 bindsym $mod+Return exec ghostty
 
 # kill focused window
@@ -149,8 +161,9 @@ bindsym $mod+a focus parent
 #bindsym $mod+d focus child
 
 
-workspace $ws1 output DP-1
-workspace $ws2 output DVI-D-0
+# Pinning workspaces to outputs (1 on the left monitor, 2 on the right) and
+# the monitor-switching bindings further down both live in
+# ~/.config/i3.local.conf, for the reason given at the top of this file.
 
 # # switch to workspace
 bindsym $mod+Prior workspace next_on_output
@@ -264,10 +277,13 @@ exec_always --no-startup-id ~/.config/polybar/launch.sh
 # ------------------------------------------
 # CUSTOM KEYS START
 # ------------------------------------------
-exec --no-startup-id nm-applet
+# NetworkManager's tray applet. WSL has no NetworkManager, so the binary is
+# simply absent there; the check keeps i3 from logging a failure every start.
+exec --no-startup-id sh -c 'command -v nm-applet >/dev/null && exec nm-applet'
 
-bindsym $mod+Shift+s exec --no-startup-id ~/dotfiles/bin/monitor
-bindsym $mod+Shift+n exec --no-startup-id ~/dotfiles/bin/resolution
+# Mode switches and resolution changes. xrandr against named outputs, so they
+# only mean anything on a real multi-monitor X session -- they are in
+# ~/.config/i3.local.conf rather than here.
 
 # FKeys
 # Pulse Audio controls (polybar pulseaudio module picks changes up on its own)
@@ -286,10 +302,12 @@ bindsym XF86AudioPrev exec --no-startup-id ~/.config/polybar/scripts/music.sh pr
 bindsym XF86MonBrightnessUp exec xbacklight -inc 20 # increase screen brightness
 bindsym XF86MonBrightnessDown exec xbacklight -dec 20 # decrease screen brightness
 
-# Alsa audio controls.
-bindsym $mod+Shift+comma exec ~/.config/i3/scripts/alsa restore
-bindsym $mod+semicolon exec ~/.config/i3/scripts/alsa down Headphone
-bindsym $mod+comma exec ~/.config/i3/scripts/alsa up Headphone
+# Alsa audio controls. These switch between sound cards using
+# ~/.config/i3/scripts/alsa, which is not in this repo -- it is a per-machine
+# helper. Uncomment once you have written it, otherwise the keys are dead.
+# bindsym $mod+Shift+comma exec --no-startup-id ~/.config/i3/scripts/alsa restore
+# bindsym $mod+semicolon    exec --no-startup-id ~/.config/i3/scripts/alsa down Headphone
+# bindsym $mod+comma        exec --no-startup-id ~/.config/i3/scripts/alsa up Headphone
 bindsym $mod+m move workspace to output left
 
 # Suspend
@@ -300,21 +318,34 @@ bindsym $mod+Shift+period exec systemctl suspend
 # Change language
 ## Set layouts on startup
 
-exec --no-startup-id setxkbmap -layout us,il -option grp:win_space_toggle
+exec --no-startup-id setxkbmap -layout us,il -option grp:alt_space_toggle
+# grp:win_space_toggle (the old value here) can never fire: $mod+space is
+# bound above to the rofi window switcher, and i3 grabs the key before X ever
+# sees it. Alt+Space leaves Win+Space free for rofi and still toggles the
+# layout -- bound to $mod in i3, so it needs no modifier of its own.
 
 # lock screen
 bindsym $mod+Ctrl+l exec --no-startup-id i3lock-fancy
 
-# Window transparency with picom compositor
-exec_always --no-startup-id picom
+# Window transparency needs a compositor, and this config does not use one by
+# default: it sets no client opacity, no fade and no rounded corners, so picom
+# has nothing to composite. On a normal X session picom is still the only way
+# to get any of that, so enable it here -- or, better, in
+# ~/.config/i3.local.conf so it can be per-machine.
+#
+# It is deliberately NOT started unconditionally. On a software-rasterised
+# X server (the WSL/VNC session) it composites every frame on the CPU for no
+# visible gain, and a compositor that redraws in step with the input is a
+# classic source of the whole desktop appearing to freeze mid-keypress.
+# exec --no-startup-id picom --backend xrender
 
 ## Wallpaper
-exec --no-startup-id bash -c 'while true; do feh --bg-fill --randomize ~/Pictures/Wallpapers/*; sleep 2m; done'
+# Re-randomised every 2 minutes. Guarded on the glob actually matching: when
+# the directory is empty or absent the glob stays literal, feh errors, and the
+# loop spins forever filling the log.
+exec --no-startup-id sh -c 'ls ~/Pictures/Wallpapers/* >/dev/null 2>&1 || exit 0; while true; do feh --bg-fill --randomize ~/Pictures/Wallpapers/*; sleep 2m; done'
 # exec --no-startup-id feh --bg-scale ~/Pictures/Wallpapers/wallpaper-1.jpg
 #
-exec --no-startup-id /usr/lib/kdeconnectd
-exec --no-startup-id kdeconnect-indicator
-
 
 # Night light. Warms the screens from dusk (16:00) to dawn (05:00); the schedule
 # lives in ~/.config/gammastep/config.ini, which is stowed from this repo.
@@ -322,5 +353,19 @@ exec --no-startup-id kdeconnect-indicator
 # `i3-msg reload` re-runs this line, so kill any running instance first:
 # two daemons writing the same gamma ramps would otherwise fight, and the one
 # that exits last restores neutral, wiping the other's effect.
-exec_always --no-startup-id sh -c 'pkill -x gammastep; sleep 1; gammastep'
+#
+# Skipped when gammastep is not installed -- it cannot work under WSL anyway,
+# where there is no gamma-ramp interface, and the bare exec would otherwise
+# put "gammastep: not found" in the log on every reload.
+exec_always --no-startup-id sh -c 'command -v gammastep >/dev/null || exit 0; pkill -x gammastep; sleep 1; gammastep'
 bindsym $mod+Shift+g exec --no-startup-id pkill -USR1 -x gammastep
+
+# ---------------------------------------------------------------------------
+# Optional desktop integrations
+# ---------------------------------------------------------------------------
+# kdeconnectd (phone notifications, clipboard sharing) and its tray indicator.
+# Neither exists on WSL, and neither is installed on a minimal desktop either,
+# so both are optional: exec'ing a missing binary only ever produces a line in
+# the log, but doing it on every reload adds up to noise.
+exec --no-startup-id sh -c '[ -x /usr/lib/kdeconnectd ] && exec /usr/lib/kdeconnectd'
+exec --no-startup-id sh -c 'command -v kdeconnect-indicator >/dev/null && exec kdeconnect-indicator'
