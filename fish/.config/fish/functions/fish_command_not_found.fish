@@ -1,7 +1,8 @@
 function fish_command_not_found --on-event fish_command_not_found
     # Recursion guard — prevent infinite loop when reef itself triggers command_not_found
     if set -q __reef_cnf_active
-        __fish_default_command_not_found_handler $argv[1]
+        # __fish_default_command_not_found_handler $argv[1]
+        /usr/lib/command-not-found -- $argv[1]
         return
     end
 
@@ -33,5 +34,6 @@ function fish_command_not_found --on-event fish_command_not_found
     end
 
     # Neither reef translation nor bash could handle it — show the real error
-    __fish_default_command_not_found_handler $argv[1]
+    # __fish_default_command_not_found_handler $argv[1]
+    /usr/lib/command-not-found -- $argv[1]
 end
