@@ -101,7 +101,7 @@ bindsym --release $mod+space exec --no-startup-id rofi -show window
 # Everything in one list: windows, then apps, then $PATH binaries.
 bindsym --release $mod+Shift+d exec --no-startup-id rofi -show combi
 
-# change focus
+# change focus (vim-style)
 bindsym $mod+h focus left
 bindsym $mod+j focus down
 bindsym $mod+k focus up
@@ -113,7 +113,8 @@ bindsym $mod+Down focus down
 bindsym $mod+Up focus up
 bindsym $mod+Right focus right
 
-# move focused window
+# move focused window (vim-style)
+# Use Shift modifier with vim keys to move windows
 bindsym $mod+Shift+h move left
 bindsym $mod+Shift+j move down
 bindsym $mod+Shift+k move up
@@ -324,3 +325,9 @@ exec --no-startup-id kdeconnect-indicator
 # that exits last restores neutral, wiping the other's effect.
 exec_always --no-startup-id sh -c 'pkill -x gammastep; sleep 1; gammastep'
 bindsym $mod+Shift+g exec --no-startup-id pkill -USR1 -x gammastep
+
+
+# make sure no unfocuse will happen
+focus_follows_mouse no
+mouse_warping none
+
