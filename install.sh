@@ -106,8 +106,8 @@ cleanup() {
 trap cleanup EXIT
 
 step_message() { printf "${c_cyan}==>${c_reset} %s\n" "$1"; }
-step_success()  { printf "${c_green}✓${c_reset} %s\n" "$1"; }
-step_error()    { printf "${c_red}✗${c_reset} %s\n" "$1"; }
+step_success() { printf "${c_green}✓${c_reset} %s\n" "$1"; }
+step_error() { printf "${c_red}✗${c_reset} %s\n" "$1"; }
 
 # Run one labeled step: show the spinner while it executes, then a ✓/✗.
 # Returns a non-zero exit code so the caller can remember the failure.
@@ -183,11 +183,11 @@ FAILED=""
 # add-apt-repository cannot be trusted to skip an already-configured PPA
 # (and its exit code is historically unreliable), so we detect it ourselves.
 ppa_configured() { apt-cache policy 2>/dev/null | grep -qi "neovim-ppa"; }
-install_ppa() {
-  if ! ppa_configured; then
-    run_privileged add-apt-repository ppa:neovim-ppa/stable -y
-  fi
-}
+# install_ppa() {
+# if ! ppa_configured; then
+#   # run_privileged add-apt-repository ppa:neovim-ppa/stable -y
+# fi
+# }
 
 packages=(curl git stow neovim fish tmux i3 i3status i3lock rofi git-delta polybar)
 
@@ -206,7 +206,8 @@ if run_step "Install packages" run_privileged apt install "${packages[@]}" -y --
 # directly instead of pinning a .deb, so we always get the current build.
 if run_step "Install ghostty (dynamic official installer)" bash -c \
   "$(curl -fsSL https://raw.githubusercontent.com/mkasberg/ghostty-ubuntu/HEAD/install.sh)"; then
-  :; else FAILED="1"; fi
+  :
+else FAILED="1"; fi
 
 # --- Stow configs into $HOME ---
 
@@ -300,3 +301,4 @@ if [ -n "$FAILED" ] || [ -n "$STOW_FAILED" ]; then
 else
   printf "${c_green}Done! All configs set up.${c_reset}\n"
 fi
+

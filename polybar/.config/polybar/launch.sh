@@ -2,9 +2,12 @@
 # One polybar per connected output: "main" (with tray) on the primary
 # monitor, "aux" (no tray) everywhere else.
 BAR_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-POLYBAR="${HOME}/.local/bin/polybar"
+POLYBAR="/usr/bin/polybar"
 command -v "$POLYBAR" >/dev/null 2>&1 || POLYBAR="$(command -v polybar)"
-[ -n "$POLYBAR" ] || { echo "polybar not found" >&2; exit 1; }
+[ -n "$POLYBAR" ] || {
+  echo "polybar not found" >&2
+  exit 1
+}
 
 pkill -x polybar 2>/dev/null
 pkill -x i3bar 2>/dev/null

@@ -266,8 +266,8 @@ exec_always --no-startup-id ~/.config/polybar/launch.sh
 # ------------------------------------------
 exec --no-startup-id nm-applet
 
-bindsym $mod+Shift+s exec --no-startup-id ~/dotfiles/bin/monitor
-bindsym $mod+Shift+n exec --no-startup-id ~/dotfiles/bin/resolution
+bindsym $mod+Shift+s exec --no-startup-id ~/.dotfiles/bin/monitor
+bindsym $mod+Shift+n exec --no-startup-id ~/.dotfiles/bin/resolution
 
 # FKeys
 # Pulse Audio controls (polybar pulseaudio module picks changes up on its own)
