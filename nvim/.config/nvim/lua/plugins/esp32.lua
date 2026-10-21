@@ -1,80 +1,80 @@
--- Resolve the clang resource directory that Espressif's clangd should use.
+-- -- Resolve the clang resource directory that Espressif's clangd should use.
+-- --
+-- -- ESP-IDF v6.1 ships two separate tools: `esp-clangd` (the language server) and
+-- -- `esp-clang` (the compiler). The `esp-clangd` package contains only
+-- -- `bin/clangd` -- it has no `lib/clang/<ver>/include`, so clangd falls back to
+-- -- a resource dir that does not exist and every translation unit fails with
+-- -- `'stdbool.h' / 'stddef.h' file not found`, which also kills completion,
+-- -- hover and go-to-definition.
+-- --
+-- -- The matching resource dir does ship with `esp-clang`, so we point clangd at
+-- -- it explicitly. `--query-driver` does not help here: the compiler reports the
+-- -- same missing path in its own `-v` output.
+-- local function esp_clang_resource_dir()
+--   local tools = { vim.env.IDF_TOOLS_PATH, vim.env.IDF_TOOLS_PATH and (vim.env.IDF_TOOLS_PATH .. "/tools") }
+--   table.insert(tools, (vim.env.HOME or vim.fn.expand("~")) .. "/.espressif/tools")
 --
--- ESP-IDF v6.1 ships two separate tools: `esp-clangd` (the language server) and
--- `esp-clang` (the compiler). The `esp-clangd` package contains only
--- `bin/clangd` -- it has no `lib/clang/<ver>/include`, so clangd falls back to
--- a resource dir that does not exist and every translation unit fails with
--- `'stdbool.h' / 'stddef.h' file not found`, which also kills completion,
--- hover and go-to-definition.
+--   local best
+--   for _, root in ipairs(tools) do
+--     if root and root ~= "" then
+--       -- <root>/esp-clang/<version>/esp-clang/lib/clang/<clang version>
+--       local matches = vim.fn.glob(root .. "/esp-clang/*/esp-clang/lib/clang/*", false, true)
+--       -- Newest wins, so a newer esp-clang release takes over automatically.
+--       for _, version in ipairs(matches) do
+--         if vim.fn.isdirectory(version .. "/include") == 1 and (not best or version > best) then
+--           best = version
+--         end
+--       end
+--     end
+--   end
 --
--- The matching resource dir does ship with `esp-clang`, so we point clangd at
--- it explicitly. `--query-driver` does not help here: the compiler reports the
--- same missing path in its own `-v` output.
-local function esp_clang_resource_dir()
-  local tools = { vim.env.IDF_TOOLS_PATH, vim.env.IDF_TOOLS_PATH and (vim.env.IDF_TOOLS_PATH .. "/tools") }
-  table.insert(tools, (vim.env.HOME or vim.fn.expand("~")) .. "/.espressif/tools")
-
-  local best
-  for _, root in ipairs(tools) do
-    if root and root ~= "" then
-      -- <root>/esp-clang/<version>/esp-clang/lib/clang/<clang version>
-      local matches = vim.fn.glob(root .. "/esp-clang/*/esp-clang/lib/clang/*", false, true)
-      -- Newest wins, so a newer esp-clang release takes over automatically.
-      for _, version in ipairs(matches) do
-        if vim.fn.isdirectory(version .. "/include") == 1 and (not best or version > best) then
-          best = version
-        end
-      end
-    end
-  end
-
-  return best
-end
-
-return {
-  -- The ESP32 helper plugin
-  {
-    "Aietes/esp32.nvim",
-    opts = function(_, opts)
-      opts.build_dir = opts.build_dir or "build.clang"
-
-      local resource_dir = esp_clang_resource_dir()
-      if resource_dir then
-        opts.clangd_args = opts.clangd_args or {}
-        if
-          not vim.iter(opts.clangd_args):any(function(a)
-            return tostring(a):match("^%-%-resource%-dir=") ~= nil
-          end)
-        then
-          table.insert(opts.clangd_args, "--resource-dir=" .. resource_dir)
-        end
-      end
-
-      return opts
-    end,
-  },
-
-  -- Override clangd to use ESP-specific config
-  {
-    "neovim/nvim-lspconfig",
-    opts = function(_, opts)
-      opts.servers = opts.servers or {}
-      -- mason = false: Espressif's clangd is the only usable one here, so keep
-      -- mason from installing and auto-enabling an upstream clangd alongside it.
-      opts.servers.clangd = vim.tbl_deep_extend("force", require("esp32").lsp_config(), { mason = false })
-      return opts
-    end,
-  },
-
-  -- C/C++ formatting via the Espressif clang-format, honouring .clang-format
-  {
-    "stevearc/conform.nvim",
-    opts = {
-      formatters_by_ft = {
-        c = { "clang-format" },
-        cpp = { "clang-format" },
-        h = { "clang-format" },
-      },
-    },
-  },
-}
+--   return best
+-- end
+--
+-- return {
+--   -- The ESP32 helper plugin
+--   {
+--     "Aietes/esp32.nvim",
+--     opts = function(_, opts)
+--       opts.build_dir = opts.build_dir or "build.clang"
+--
+--       local resource_dir = esp_clang_resource_dir()
+--       if resource_dir then
+--         opts.clangd_args = opts.clangd_args or {}
+--         if
+--           not vim.iter(opts.clangd_args):any(function(a)
+--             return tostring(a):match("^%-%-resource%-dir=") ~= nil
+--           end)
+--         then
+--           table.insert(opts.clangd_args, "--resource-dir=" .. resource_dir)
+--         end
+--       end
+--
+--       return opts
+--     end,
+--   },
+--
+--   -- Override clangd to use ESP-specific config
+--   {
+--     "neovim/nvim-lspconfig",
+--     opts = function(_, opts)
+--       opts.servers = opts.servers or {}
+--       -- mason = false: Espressif's clangd is the only usable one here, so keep
+--       -- mason from installing and auto-enabling an upstream clangd alongside it.
+--       opts.servers.clangd = vim.tbl_deep_extend("force", require("esp32").lsp_config(), { mason = false })
+--       return opts
+--     end,
+--   },
+--
+--   -- C/C++ formatting via the Espressif clang-format, honouring .clang-format
+--   {
+--     "stevearc/conform.nvim",
+--     opts = {
+--       formatters_by_ft = {
+--         c = { "clang-format" },
+--         cpp = { "clang-format" },
+--         h = { "clang-format" },
+--       },
+--     },
+--   },
+-- }
