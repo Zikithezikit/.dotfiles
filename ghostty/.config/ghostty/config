@@ -64,3 +64,8 @@ window-theme = ghostty
 # Linux
 gtk-titlebar = false
 
+# Cursor animation: Neovide-style smooth cursor trail (GLSL shader)
+# Tweak speed/blend via constants at the top of the shader file.
+custom-shader = shaders/cursor_warp.glsl
+custom-shader-animation = true
+
