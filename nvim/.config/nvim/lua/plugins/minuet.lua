@@ -1,7 +1,7 @@
 return {
   "milanglacier/minuet-ai.nvim",
   dependencies = { "nvim-lua/plenary.nvim" },
-  event = "InsertEnter",
+  lazy = false, -- auto-trigger is set from a FileType autocmd, so it must load before the buffer opens
   opts = {
     provider = "gemini",
     provider_options = {
