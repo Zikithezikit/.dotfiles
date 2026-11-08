@@ -1,7 +1,6 @@
 return {
   "milanglacier/minuet-ai.nvim",
   dependencies = { "nvim-lua/plenary.nvim" },
-  lazy = false, -- auto-trigger is set from a FileType autocmd, so it must load before the buffer opens
   opts = {
     provider = "gemini",
     provider_options = {
@@ -12,17 +11,6 @@ return {
         },
       },
     },
-    virtualtext = {
-      auto_trigger_ft = { "*" },
-      auto_trigger_ignore_ft = { "gitcommit", "gitrebase" },
-      show_on_completion_menu = true, -- blink's menu is almost always open while typing
-      keymap = {
-        accept = "<M-l>", -- <Tab> belongs to blink.cmp
-        accept_line = "<M-L>",
-        next = "<M-]>",
-        prev = "<M-[>",
-        dismiss = "<M-e>",
-      },
-    },
+    blink = { enable_auto_complete = false }, -- only runs on <C-Space>
   },
 }
