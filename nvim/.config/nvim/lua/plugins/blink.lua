@@ -27,6 +27,11 @@ return {
       score_offset = 100, -- keep Gemini above lsp/buffer items
     }
     opts.completion = opts.completion or {}
+    -- multi-line Gemini items show as ghost text below the cursor; the menu is placed once when it opens
+    -- (not per selection), so always open it above to keep it off the ghost text
+    opts.completion.menu = vim.tbl_extend("force", opts.completion.menu or {}, {
+      direction_priority = { "n", "s" },
+    })
     opts.completion.trigger = vim.tbl_extend("force", opts.completion.trigger or {}, { prefetch_on_insert = false })
   end,
 }
