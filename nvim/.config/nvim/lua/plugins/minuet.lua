@@ -6,7 +6,7 @@ return {
     provider = "gemini",
     provider_options = {
       gemini = {
-        model = "gemini-2.0-flash", -- API key comes from $GEMINI_API_KEY
+        model = "gemini-3.5-flash-lite", -- API key comes from $GEMINI_API_KEY
         optional = {
           generationConfig = { maxOutputTokens = 256 },
         },
