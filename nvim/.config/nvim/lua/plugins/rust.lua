@@ -17,7 +17,15 @@ return {
   -- rustaceanvim commands that have no default keys (cR = code action and dr = debuggables come from LazyVim)
   {
     "folke/which-key.nvim",
-    opts = { spec = { { "<leader>r", group = "rust", icon = "" } } },
+    -- 0xf1617 = nf-md-language_rust
+    opts = function(_, opts)
+      local icon = { icon = vim.fn.nr2char(0xf1617), color = "orange" }
+      opts.spec = opts.spec or {}
+      table.insert(opts.spec, { "<leader>r", group = "rust", icon = icon })
+      for _, key in ipairs({ "r", "t", "e", "p", "d", "c" }) do
+        table.insert(opts.spec, { "<leader>r" .. key, icon = icon })
+      end
+    end,
     init = function()
       vim.api.nvim_create_autocmd("FileType", {
         pattern = { "rust", "toml" },

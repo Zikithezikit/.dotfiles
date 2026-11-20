@@ -27,6 +27,15 @@ return {
   { "stevearc/conform.nvim", opts = { formatters_by_ft = { cmake = { "cmake_format" } } } },
   {
     "folke/which-key.nvim",
-    opts = { spec = { { "<leader>m", group = "cmake", icon = "" } } },
+    -- Icon goes through spec nodes, not icons.rules (a second icons.rules would clobber which-key-icons.lua).
+    -- 0xe794 = nf-dev-cmake (the CMake logo); nr2char keeps the glyph from being lost in the source file.
+    opts = function(_, opts)
+      local icon = { icon = vim.fn.nr2char(0xe794), color = "azure" }
+      opts.spec = opts.spec or {}
+      table.insert(opts.spec, { "<leader>m", group = "cmake", icon = icon })
+      for _, key in ipairs({ "g", "b", "r", "d", "t", "c", "s", "B", "T", "p" }) do
+        table.insert(opts.spec, { "<leader>m" .. key, icon = icon })
+      end
+    end,
   },
 }
