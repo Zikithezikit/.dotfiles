@@ -1,6 +1,6 @@
 return {
   "saghen/blink.cmp",
-  dependencies = { "milanglacier/minuet-ai.nvim" },
+  dependencies = vim.env.GEMINI_API_KEY and { "milanglacier/minuet-ai.nvim" } or nil,
   opts = function(_, opts)
     opts.keymap = vim.tbl_extend("force", opts.keymap or {}, {
       preset = "default",
@@ -17,6 +17,9 @@ return {
       },
     })
     opts.sources = opts.sources or {}
+    if not vim.env.GEMINI_API_KEY then
+      return -- no key: keep plain LSP/buffer completion, <C-Space> above still works
+    end
     opts.sources.default = vim.list_extend(vim.deepcopy(opts.sources.default or {}), { "minuet" })
     opts.sources.providers = opts.sources.providers or {}
     opts.sources.providers.minuet = {

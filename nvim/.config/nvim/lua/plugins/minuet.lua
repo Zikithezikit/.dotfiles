@@ -1,5 +1,9 @@
+-- Gemini completion needs $GEMINI_API_KEY; without it the plugin errors on every startup, so stay off.
+local has_key = (vim.env.GEMINI_API_KEY or "") ~= ""
+
 return {
   "milanglacier/minuet-ai.nvim",
+  enabled = has_key,
   dependencies = { "nvim-lua/plenary.nvim" },
   opts = {
     provider = "gemini",
