@@ -1,0 +1,10 @@
+# Global clangd defaults; a project's own .clangd overrides these.
+Diagnostics:
+  ClangTidy:
+    Remove: [modernize-use-trailing-return-type, readability-identifier-length, readability-magic-numbers]
+Completion:
+  AllScopes: Yes
+InlayHints:
+  Designators: Yes
+Hover:
+  ShowAKA: Yes
