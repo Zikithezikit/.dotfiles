@@ -1,0 +1,3 @@
+# Global defaults; a .sqlfluff in a project overrides these.
+[sqlfluff]
+dialect = ansi
