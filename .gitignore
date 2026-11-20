@@ -1,0 +1,2 @@
+# fish rewrites these itself (universal variables + temp files), so they only create noise
+fish/.config/fish/fish_variables*
