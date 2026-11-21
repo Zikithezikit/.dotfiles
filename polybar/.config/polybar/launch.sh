@@ -14,16 +14,37 @@ pkill -x i3bar 2>/dev/null
 pkill -x i3blocks 2>/dev/null
 sleep 0.4
 
-PRIMARY="$(xrandr --query | awk '/ connected/ && / primary /{print $1; exit}')"
-[ -n "$PRIMARY" ] || PRIMARY="$(xrandr --query | awk '/ connected/{print $1; exit}')"
+# First Battery supply, and the first Mains supply as its adapter; none on desktops.
+# scope=Device is a peripheral's own battery (wireless mouse, gamepad), not the machine's.
+PS_DIR="${POWER_SUPPLY_DIR:-/sys/class/power_supply}"
+for S in "$PS_DIR"/*; do
+  [ -r "$S/type" ] || continue
+  [ "$(cat "$S/scope" 2>/dev/null)" = Device ] && continue
+  case "$(<"$S/type")" in
+    Battery) [ -n "$BATTERY" ] || BATTERY="$(basename "$S")" ;;
+    Mains) [ -n "$ADAPTER" ] || ADAPTER="$(basename "$S")" ;;
+  esac
+done
+if [ -n "$BATTERY" ]; then
+  export BATTERY ADAPTER
+  export BAT_MODULES="battery dot "
+fi
 
-for OUTPUT in $(xrandr --query | awk '/ connected/{print $1}'); do
-  if [ "$OUTPUT" = "$PRIMARY" ]; then
-    BAR=main
-  else
-    BAR=aux
-  fi
+# Active outputs, primary first (it gets the tray). A connected output without a
+# geometry is switched off (e.g. the laptop panel while docked) and polybar
+# cannot open a bar on it. If xrandr shows none, fall back to polybar's default
+# monitor so there is still a bar.
+mapfile -t OUTPUTS < <(xrandr --query | awk '
+  $2 == "connected" && ($3 ~ /^[0-9]+x[0-9]+[+]/ || $3 == "primary" && $4 ~ /^[0-9]+x[0-9]+[+]/) {
+    if ($3 == "primary") p = $1; else o[n++] = $1 }
+  END { if (p) print p; for (i = 0; i < n; i++) print o[i] }')
+[ "${#OUTPUTS[@]}" -gt 0 ] || OUTPUTS=("")
+
+LOG_DIR="${XDG_RUNTIME_DIR:-/tmp}"
+BAR=main
+for OUTPUT in "${OUTPUTS[@]}"; do
   MONITOR="$OUTPUT" "$POLYBAR" -c "$BAR_DIR/config.ini" "$BAR" \
-    >"/tmp/polybar-${OUTPUT}.log" 2>&1 &
+    >"$LOG_DIR/polybar-${OUTPUT:-default}.log" 2>&1 &
+  BAR=aux
 done
 wait

@@ -1,0 +1,16 @@
+#!/bin/bash
+# Screen brightness for the XF86MonBrightness keys: brightness up|down (20%).
+# brightnessctl drives the kernel backlight, which xbacklight often cannot see
+# on modern laptops; xbacklight is the fallback. Desktops have neither, so this
+# is a silent no-op there. The class is explicit because brightnessctl would
+# otherwise also pick keyboard LEDs; -n keeps the panel from reaching 0 (black).
+case $1 in
+up) sign=+ xb=-inc ;;
+down) sign=- xb=-dec ;;
+*) echo "usage: ${0##*/} up|down" >&2; exit 2 ;;
+esac
+if command -v brightnessctl >/dev/null 2>&1 && brightnessctl -q -c backlight -n set "20%$sign" 2>/dev/null; then
+  exit 0
+fi
+command -v xbacklight >/dev/null 2>&1 && xbacklight "$xb" 20 2>/dev/null
+exit 0

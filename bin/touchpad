@@ -1,0 +1,11 @@
+#!/bin/bash
+# Tap-to-click and natural scrolling on libinput touchpads. A touchpad is told
+# apart from a mouse by its "Tapping Enabled" property, so mice (and desktops
+# without a touchpad) are left alone. No-op without xinput.
+command -v xinput >/dev/null 2>&1 || exit 0
+for id in $(xinput list --id-only 2>/dev/null); do
+  [[ $(xinput list-props "$id" 2>/dev/null) == *"libinput Tapping Enabled ("* ]] || continue
+  xinput set-prop "$id" "libinput Tapping Enabled" 1
+  xinput set-prop "$id" "libinput Natural Scrolling Enabled" 1
+done
+exit 0

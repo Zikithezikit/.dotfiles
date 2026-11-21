@@ -1,2 +1,32 @@
 #!/bin/bash
-xrandr --output DP-1 --primary --mode 1920x1080 --pos 0x0 --auto --output DVI-D-0 --mode 1920x1080 --right-of DP-1 --auto
+# Lay out every connected output left to right, primary first. No-op with a
+# single output. MONITOR_PRIMARY picks the primary (default DP-1; falls back to
+# xrandr's current primary, then the first connected); MONITOR_MODE is the mode
+# used on external outputs that support it (default 1920x1080, else --auto).
+q=$(xrandr --query) || exit 0
+mapfile -t outs < <(awk '$2 == "connected" {print $1}' <<<"$q")
+[ "${#outs[@]}" -gt 1 ] || exit 0
+
+primary=$(awk -v want="${MONITOR_PRIMARY:-DP-1}" '
+  $2 == "connected" { if (!first) first = $1; if ($1 == want) w = $1; if ($3 == "primary") p = $1 }
+  END { print w ? w : p ? p : first }' <<<"$q")
+
+supports() { # output mode
+  awk -v o="$1" -v m="$2" '/^[^ ]/ {s = $1 == o; next} s && $1 == m {f = 1} END {exit !f}' <<<"$q"
+}
+mode() { # sets $margs; internal panels keep their native mode
+  local want=${MONITOR_MODE:-1920x1080}
+  if [[ $1 != eDP* && $1 != LVDS* ]] && supports "$1" "$want"; then margs=(--mode "$want"); else margs=(--auto); fi
+}
+
+mode "$primary"
+args=(--output "$primary" --primary "${margs[@]}" --pos 0x0)
+prev=$primary
+for o in "${outs[@]}"; do
+  [ "$o" = "$primary" ] && continue
+  mode "$o"
+  args+=(--output "$o" "${margs[@]}" --right-of "$prev")
+  prev=$o
+done
+xrandr "${args[@]}"
+exit 0

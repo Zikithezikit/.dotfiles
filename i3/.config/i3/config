@@ -44,11 +44,7 @@ client.focused_inactive $bgcolor        $bgcolor        $text           $indicat
 client.urgent           $u-bgcolor      $u-bgcolor      $text           $u-bgcolor
 client.background       $bar-color
 
-# Font for window titles. Will also be used by the bar unless a different font
-# is used in the bar {} block below.
-font pango:monospace 15px
-
-# GET DEM BORDERS OUT OF HEREc:w
+# GET DEM BORDERS OUT OF HERE
 #
 # Thanks Childz
 for_window [class="^.*"] border pixel 2
@@ -57,8 +53,9 @@ for_window [class="^.*"] border pixel 2
 gaps inner 10
 gaps outer 0
 
-# This font is widely installed, provides lots of unicode glyphs, right-to-left
-# text rendering and scalability on retina/hidpi displays (thanks to pango).
+# Font for window titles (a single font directive: the last one wins). Widely
+# installed, provides lots of unicode glyphs, right-to-left text rendering and
+# scalability on retina/hidpi displays (thanks to pango).
 font pango:DejaVu Sans Mono, FontAwesome 16
 
 # Before i3 v4.8, we used to recommend this one as the default:
@@ -69,9 +66,8 @@ font pango:DejaVu Sans Mono, FontAwesome 16
 # font, it doesn’t scale on retina/hidpi displays.
 
 # Screen movement
-# DP-1 (left), DVI-D-0 (right)
-exec --no-startup-id xrandr --output DP-1 --primary --mode 1920x1080 --pos 0x0 --auto
-exec --no-startup-id xrandr --output DVI-D-0 --right-of DP-1 --mode 1920x1080 --auto
+# Lay out connected outputs left to right (see bin/monitor)
+exec --no-startup-id ~/.local/bin/monitor
 
 # Use Mouse+$mod to drag floating windows to their wanted position
 floating_modifier $mod
@@ -82,8 +78,6 @@ floating_modifier $mod
 bindsym $mod+Return exec ghostty
 
 # kill focused window
-# bindsym $mod+space exec "/home/theprimeagen/dotfiles/awesome-streamerrc/ThePrimeagen/tmux2"
-
 bindsym $mod+Shift+q kill
 
 # start rofi (a program launcher)
@@ -267,14 +261,14 @@ exec_always --no-startup-id ~/.config/polybar/launch.sh
 # ------------------------------------------
 exec --no-startup-id nm-applet
 
-bindsym $mod+Shift+s exec --no-startup-id ~/.dotfiles/bin/monitor
-bindsym $mod+Shift+n exec --no-startup-id ~/.dotfiles/bin/resolution
+bindsym $mod+Shift+s exec --no-startup-id ~/.local/bin/monitor
+bindsym $mod+Shift+n exec --no-startup-id ~/.local/bin/resolution
 
 # FKeys
 # Pulse Audio controls (polybar pulseaudio module picks changes up on its own)
-bindsym XF86AudioRaiseVolume exec --no-startup-id pactl set-sink-volume 0 +5%
-bindsym XF86AudioLowerVolume exec --no-startup-id pactl set-sink-volume 0 -5%
-bindsym XF86AudioMute exec --no-startup-id pactl set-sink-mute 0 toggle
+bindsym XF86AudioRaiseVolume exec --no-startup-id pactl set-sink-volume @DEFAULT_SINK@ +5%
+bindsym XF86AudioLowerVolume exec --no-startup-id pactl set-sink-volume @DEFAULT_SINK@ -5%
+bindsym XF86AudioMute exec --no-startup-id pactl set-sink-mute @DEFAULT_SINK@ toggle
 
 # Media control keys (music.sh picks the same player the bar shows: first
 # Playing, else first Paused; bar music module refreshes every second)
@@ -284,13 +278,10 @@ bindsym XF86AudioNext exec --no-startup-id ~/.config/polybar/scripts/music.sh ne
 bindsym XF86AudioPrev exec --no-startup-id ~/.config/polybar/scripts/music.sh previous
 #
 # # Sreen brightness controls
-bindsym XF86MonBrightnessUp exec xbacklight -inc 20 # increase screen brightness
-bindsym XF86MonBrightnessDown exec xbacklight -dec 20 # decrease screen brightness
+# bin/brightness: brightnessctl when present, else xbacklight; no-op on desktops
+bindsym XF86MonBrightnessUp exec --no-startup-id ~/.local/bin/brightness up
+bindsym XF86MonBrightnessDown exec --no-startup-id ~/.local/bin/brightness down
 
-# Alsa audio controls.
-bindsym $mod+Shift+comma exec ~/.config/i3/scripts/alsa restore
-bindsym $mod+semicolon exec ~/.config/i3/scripts/alsa down Headphone
-bindsym $mod+comma exec ~/.config/i3/scripts/alsa up Headphone
 bindsym $mod+m move workspace to output left
 
 # Suspend
@@ -303,17 +294,21 @@ bindsym $mod+Shift+period exec systemctl suspend
 
 exec --no-startup-id setxkbmap -layout us,il -option grp:win_space_toggle
 
+# Touchpad: tap-to-click + natural scrolling; no-op when there is no touchpad
+exec --no-startup-id ~/.local/bin/touchpad
+
 # lock screen
 bindsym $mod+Ctrl+l exec --no-startup-id i3lock-fancy
 
 # Window transparency with picom compositor
-exec_always --no-startup-id picom
+# pgrep guard: exec_always re-runs on every i3 reload and would stack picoms
+exec_always --no-startup-id pgrep -x picom || picom
 
 ## Wallpaper
 exec --no-startup-id bash -c 'while true; do feh --bg-fill --randomize ~/Pictures/Wallpapers/*; sleep 2m; done'
 # exec --no-startup-id feh --bg-scale ~/Pictures/Wallpapers/wallpaper-1.jpg
 #
-exec --no-startup-id /usr/lib/kdeconnectd
+exec --no-startup-id kdeconnectd
 exec --no-startup-id kdeconnect-indicator
 
 

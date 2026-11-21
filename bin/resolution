@@ -1,7 +1,25 @@
 #!/bin/bash
-CURRENT=$(xrandr --query | grep " connected" | head -1 | awk '{print $1}')
-if xrandr --query | grep "$CURRENT.*1920x1080" > /dev/null 2>&1; then
-    xrandr --output "$CURRENT" --mode 1680x1050
-else
-    xrandr --output "$CURRENT" --mode 1920x1080
-fi
+# Toggle the primary (else first active) output between two modes: 1920x1080
+# and 1680x1050 when it has both, otherwise its two highest resolutions.
+q=$(xrandr --query) || exit 0
+# Output choice: primary, else the first one that is switched on (has a
+# geometry), else the first connected.
+out=$(awk -v g='^[0-9]+x[0-9]+[+]' '
+  $2 == "connected" { if (!first) first = $1; if (!on && ($3 ~ g || $4 ~ g)) on = $1; if ($3 == "primary") p = $1 }
+  END { print p ? p : on ? on : first }' <<<"$q")
+[ -n "$out" ] || exit 0
+
+# Mode lines are indented under their output; "*" marks the current one and
+# interlaced modes (name ending in "i") are skipped.
+read -r cur modes < <(awk -v o="$out" '
+  /^[^ ]/ { s = $1 == o; next }
+  s && $1 !~ /i$/ { m = m " " $1; if ($0 ~ /\*/) c = $1 }
+  END { print (c ? c : "-") m }' <<<"$q")
+read -ra ms <<<"$modes"
+case " $modes " in
+*" 1920x1080 "*" 1680x1050 "*) a=1920x1080 b=1680x1050 ;;
+*) a=${ms[0]} b=${ms[1]} ;;
+esac
+[ -n "$b" ] || exit 0
+if [ "$cur" = "$a" ]; then next=$b; else next=$a; fi
+xrandr --output "$out" --mode "$next"
