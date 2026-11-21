@@ -19,9 +19,6 @@ require("lazy").setup({
     -- add LazyVim and import its plugins
     { "LazyVim/LazyVim", import = "lazyvim.plugins" },
 
-    -- 2. Extras (ADD THE NEOGEN EXTRA HERE)
-    { import = "lazyvim.plugins.extras.coding.neogen" },
-
     -- import/override with your plugins
     { import = "plugins" },
   },

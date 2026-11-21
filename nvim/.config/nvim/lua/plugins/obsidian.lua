@@ -96,8 +96,13 @@ vim.g.obsidian_default_keymap = false
 -- key's own condition triggers the load, and `ft = "markdown"` loads the plugin without them. An
 -- ftplugin is sourced by Neovim itself, per buffer, so it always applies.
 
+-- obsidian.nvim aborts its setup with "At least one workspace is required" when the vault is missing, which errors on
+-- every markdown buffer, so the plugin is only enabled where the vault exists (ftplugin/markdown.lua checks the same).
+local vault = vim.fn.expand(vim.env.OBSIDIAN_VAULT or "~/Documents/vault")
+
 return {
   "obsidian-nvim/obsidian.nvim",
+  enabled = vim.uv.fs_stat(vault) ~= nil,
   version = "*", -- latest tagged release; overrides this config's global `version = false`
   lazy = true,
   cmd = "Obsidian", -- so `:Obsidian today` works from any buffer, not just markdown
@@ -204,7 +209,7 @@ return {
   opts = {
     legacy_commands = false, -- recommended; will be removed in 4.0.0
     workspaces = {
-      { name = "personal", path = "~/Documents/vault" },
+      { name = "personal", path = vault },
     },
 
     new_notes_location = "current_dir",

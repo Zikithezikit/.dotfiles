@@ -94,8 +94,9 @@ return {
             local w = vim.uv.new_fs_event()
             watching[root] = w
             w:start(root, {}, vim.schedule_wrap(function()
-              if has_db() then
-                w:stop()
+              -- one directory write fires several events: act on the first only
+              if watching[root] == w and has_db() then
+                w:close()
                 watching[root] = nil
                 vim.cmd("lsp restart clangd")
               end
@@ -128,10 +129,5 @@ return {
         python = { "ruff_fix", "ruff_format", "ruff_organize_imports" },
       },
     },
-  },
-
-  {
-    "mason-org/mason.nvim",
-    opts = { ensure_installed = { "ruff", "prettier", "cmakelang", "cmakelint" } },
   },
 }

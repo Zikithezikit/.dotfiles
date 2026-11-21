@@ -28,6 +28,7 @@ return {
     end,
     init = function()
       vim.api.nvim_create_autocmd("FileType", {
+        group = vim.api.nvim_create_augroup("rust_keys", { clear = true }),
         pattern = { "rust", "toml" },
         callback = function(ev)
           local function map(lhs, cmd, desc)

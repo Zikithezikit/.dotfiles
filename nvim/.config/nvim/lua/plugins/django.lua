@@ -20,7 +20,7 @@ return {
   -- template completion/go-to-definition for tags, filters, urls, static
   {
     "neovim/nvim-lspconfig",
-    opts = { servers = { djlsp = { root_markers = { "manage.py" } }, djls = { enabled = false } } }, -- djls duplicates djlsp
+    opts = { servers = { djlsp = { root_markers = { "manage.py" } } } },
   },
   {
     "mason-org/mason.nvim",
@@ -29,6 +29,11 @@ return {
   {
     "nvim-treesitter/nvim-treesitter",
     opts = { ensure_installed = { "htmldjango" } },
+  },
+  -- <leader>j: <leader>d* belongs to DAP (dr/ds/dt are its REPL/Session/Terminate)
+  {
+    "folke/which-key.nvim",
+    opts = { spec = { { "<leader>j", group = "django" } } },
   },
   -- manage.py runners, only when launched from a Django project root
   {
@@ -44,11 +49,11 @@ return {
         end
       end
       return {
-        { "<leader>dr", manage("runserver"), desc = "Django runserver" },
-        { "<leader>dm", manage("migrate"), desc = "Django migrate" },
-        { "<leader>dM", manage("makemigrations"), desc = "Django makemigrations" },
-        { "<leader>dt", manage("test"), desc = "Django test" },
-        { "<leader>ds", manage("shell"), desc = "Django shell" },
+        { "<leader>jr", manage("runserver"), desc = "Django runserver" },
+        { "<leader>jm", manage("migrate"), desc = "Django migrate" },
+        { "<leader>jM", manage("makemigrations"), desc = "Django makemigrations" },
+        { "<leader>jt", manage("test"), desc = "Django test" },
+        { "<leader>js", manage("shell"), desc = "Django shell" },
       }
     end)(),
   },

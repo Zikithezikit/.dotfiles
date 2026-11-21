@@ -26,6 +26,11 @@
 -- either here would silently disable folding ranges from the other.
 vim.opt_local.foldtext = "v:lua.vim.lsp.foldtext()"
 
+-- No obsidian.nvim (vault missing, see lua/plugins/obsidian.lua): its keymaps below would only error.
+if not require("lazy.core.config").plugins["obsidian.nvim"] then
+  return
+end
+
 -- <CR> and [o / ]o below replace the plugin's own, which lua/plugins/obsidian.lua switches off by
 -- setting vim.g.obsidian_default_keymap = false (obsidian.nvim autocmds.lua:62-71). That switch
 -- is what makes these take effect cleanly; without it the plugin's BufEnter autocmd would rebind
