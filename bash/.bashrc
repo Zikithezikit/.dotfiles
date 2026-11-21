@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Kiro CLI pre block. Keep at the top of this file.
 [[ -f "${HOME}/.local/share/kiro-cli/shell/bashrc.pre.bash" ]] && builtin source "${HOME}/.local/share/kiro-cli/shell/bashrc.pre.bash"
 
@@ -76,7 +77,7 @@ esac
 
 # enable color support of ls and also add handy aliases
 if [ -x /usr/bin/dircolors ]; then
-  test -r ~/.dircolors && eval "$(dircolors -b ~/.dircolors)" || eval "$(dircolors -b)"
+  if [ -r ~/.dircolors ]; then eval "$(dircolors -b ~/.dircolors)"; else eval "$(dircolors -b)"; fi
   alias ls='ls --color=auto'
   #alias dir='dir --color=auto'
   #alias vdir='vdir --color=auto'
@@ -104,6 +105,7 @@ alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo
 # See /usr/share/doc/bash-doc/examples in the bash-doc package.
 
 if [ -f ~/.bash_aliases ]; then
+  # shellcheck source=/dev/null
   . ~/.bash_aliases
 fi
 
@@ -117,39 +119,44 @@ if ! shopt -oq posix; then
     . /etc/bash_completion
   fi
 fi
-. "$HOME/.cargo/env"
+[ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+
+# path_add DIR [append]: put DIR on PATH once, and only if it exists.
+path_add() {
+  [ -d "$1" ] || return 0
+  case ":$PATH:" in *":$1:"*) return 0 ;; esac
+  if [ -n "$2" ]; then PATH="$PATH:$1"; else PATH="$1:$PATH"; fi
+}
 
 # Added by LM Studio CLI (lms)
-export PATH="$PATH:/home/server-yoav/.lmstudio/bin"
+path_add "$HOME/.lmstudio/bin" append
 # End of LM Studio CLI section
 
-export PATH="$HOME/bin:$PATH"
+path_add "$HOME/bin"
 
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvm
 
 # >>> conda initialize >>>
 # !! Contents within this block are managed by 'conda init' !!
-__conda_setup="$('/home/server-yoav/miniconda3/bin/conda' 'shell.bash' 'hook' 2>/dev/null)"
+__conda_setup="$("$HOME/miniconda3/bin/conda" 'shell.bash' 'hook' 2>/dev/null)"
 if [ $? -eq 0 ]; then
   eval "$__conda_setup"
 else
-  if [ -f "/home/server-yoav/miniconda3/etc/profile.d/conda.sh" ]; then
-    . "/home/server-yoav/miniconda3/etc/profile.d/conda.sh"
+  if [ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ]; then
+    . "$HOME/miniconda3/etc/profile.d/conda.sh"
   else
-    export PATH="/home/server-yoav/miniconda3/bin:$PATH"
+    export PATH="$HOME/miniconda3/bin:$PATH"
   fi
 fi
 unset __conda_setup
 # <<< conda initialize <<<
 
-source '/home/server-yoav/.bash_completions/tradingagents.sh'
-export PATH="$HOME/.npm-global/bin:$PATH"
+[ -f "$HOME/.bash_completions/tradingagents.sh" ] && source "$HOME/.bash_completions/tradingagents.sh"
+path_add "$HOME/.npm-global/bin"
 
 export CLICOLOR=1
-alias ls='ls --color=auto'
-alias grep='grep --color=auto'
-export PATH="$HOME/.local/bin:$PATH"
+path_add "$HOME/.local/bin"
 
 # Kiro CLI post block. Keep at the bottom of this file.
 [[ -f "${HOME}/.local/share/kiro-cli/shell/bashrc.post.bash" ]] && builtin source "${HOME}/.local/share/kiro-cli/shell/bashrc.post.bash"
@@ -159,4 +166,4 @@ export PATH="$HOME/.local/bin:$PATH"
 # export ANTHROPIC_AUTH_TOKEN="$OPENROUTER_API_KEY"
 # export ANTHROPIC_API_KEY=""
 
-export PATH=/usr/local/go/bin:$PATH
+path_add /usr/local/go/bin

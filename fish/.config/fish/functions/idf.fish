@@ -1,8 +1,4 @@
-# function idf --wraps=source\ \'/home/server-yoav/.espressif/tools/activate_idf_v6.1.fish\'\ \&\&\ set\ -x\ ESP_IDF_VERSION\ 6.1.0 --description alias\ idf=source\ \'/home/server-yoav/.espressif/tools/activate_idf_v6.1.fish\'\ \&\&\ set\ -x\ ESP_IDF_VERSION\ 6.1.0
-#   source '/home/server-yoav/.espressif/tools/activate_idf_v6.1.fish' && set -x ESP_IDF_VERSION 6.1.0 $argv
-#
-# end
-
-function idf
-    source $HOME/.espressif/v6.1/esp-idf/export.fish
+function idf --description "Activate the ESP-IDF 6.1 environment"
+    source $HOME/.espressif/tools/activate_idf_v6.1.fish
+    and set -gx ESP_IDF_VERSION 6.1.0
 end

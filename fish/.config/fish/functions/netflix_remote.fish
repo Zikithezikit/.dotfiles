@@ -1,4 +1,4 @@
-function netflix_remote --wraps=export\ XAUTHORITY=\'/home/server-yoav/.Xauthority\'\ \&\&\ gtk-launch\ Netflix --description alias\ netflix_remote=export\ XAUTHORITY=\'/home/server-yoav/.Xauthority\'\ \&\&\ gtk-launch\ Netflix
-  export XAUTHORITY='/home/server-yoav/.Xauthority' && gtk-launch Netflix $argv
-        
+function netflix_remote --description "Launch the Netflix desktop entry"
+    set -gx XAUTHORITY $HOME/.Xauthority
+    gtk-launch Netflix $argv
 end
