@@ -20,14 +20,16 @@ PS_DIR="${POWER_SUPPLY_DIR:-/sys/class/power_supply}"
 for S in "$PS_DIR"/*; do
   [ -r "$S/type" ] || continue
   [ "$(cat "$S/scope" 2>/dev/null)" = Device ] && continue
+  [ "$(cat "$S/present" 2>/dev/null)" = 0 ] && continue # empty battery bay
   case "$(<"$S/type")" in
     Battery) [ -n "$BATTERY" ] || BATTERY="$(basename "$S")" ;;
     Mains) [ -n "$ADAPTER" ] || ADAPTER="$(basename "$S")" ;;
   esac
 done
+SUFFIX=""
 if [ -n "$BATTERY" ]; then
   export BATTERY ADAPTER
-  export BAT_MODULES="battery dot "
+  SUFFIX="-bat" # bar variants that include the battery module
 fi
 
 # Active outputs, primary first (it gets the tray). A connected output without a
@@ -43,7 +45,7 @@ mapfile -t OUTPUTS < <(xrandr --query | awk '
 LOG_DIR="${XDG_RUNTIME_DIR:-/tmp}"
 BAR=main
 for OUTPUT in "${OUTPUTS[@]}"; do
-  MONITOR="$OUTPUT" "$POLYBAR" -c "$BAR_DIR/config.ini" "$BAR" \
+  MONITOR="$OUTPUT" "$POLYBAR" -c "$BAR_DIR/config.ini" "$BAR$SUFFIX" \
     >"$LOG_DIR/polybar-${OUTPUT:-default}.log" 2>&1 &
   BAR=aux
 done
