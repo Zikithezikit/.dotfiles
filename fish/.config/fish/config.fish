@@ -23,6 +23,6 @@ end
 # this stays portable across PCs. Prepended: go, bun. Appended: the rest.
 set -gx BUN_INSTALL $HOME/.bun
 fish_add_path -g /usr/local/go/bin $BUN_INSTALL/bin
-fish_add_path -ga /opt/nvim-linux-x86_64/bin $HOME/.local/bin $HOME/.npm-global/bin \
+fish_add_path -ga $HOME/.local/bin $HOME/.npm-global/bin \
     $HOME/.opencode/bin $HOME/.lmstudio/bin \
     $HOME/.espressif/tools/tools/qemu-xtensa/esp_develop_9.2.2_20260417/qemu/bin
